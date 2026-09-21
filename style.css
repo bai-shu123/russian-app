@@ -753,3 +753,100 @@ footer {
     flex: 1 1 auto;
   }
 }
+
+/* ==================== 单元多选面板 ==================== */
+.unit-selector-panel {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+.unit-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.unit-selector-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--blue);
+}
+
+.unit-selector-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.mini-btn {
+  border: 1px solid #ddd;
+  background: white;
+  color: var(--muted);
+  padding: 4px 12px;
+  border-radius: 14px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.mini-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.unit-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 8px;
+}
+
+.unit-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f7f8fb;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s;
+}
+
+.unit-checkbox-item:hover {
+  background: #eef1f8;
+}
+
+.unit-checkbox-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.unit-selector-count {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: right;
+}
+
+.quiz-start-btn {
+  margin-top: 14px;
+  width: auto;
+  display: inline-block;
+  padding: 10px 28px;
+}
+
+.empty-state {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
