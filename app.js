@@ -325,32 +325,118 @@ function renderAlphabet() {
   });
 }
 
+// ---------- 单元选择（走遍俄罗斯 1，词汇卡片 & 测验通用） ----------
+let vocabSelectedUnits = [];
+let quizSelectedUnits = [];
+
+function unitSelectionKey(type) {
+  return 'ru_unit_selection_' + type + '::' + currentUsername.toLowerCase();
+}
+
+function loadUnitSelection(type) {
+  const raw = localStorage.getItem(unitSelectionKey(type));
+  if (raw) {
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length > 0) return arr;
+    } catch (e) { /* fallthrough */ }
+  }
+  return courseData.map(l => l.id);
+}
+
+function saveUnitSelection(type, unitIds) {
+  localStorage.setItem(unitSelectionKey(type), JSON.stringify(unitIds));
+}
+
+function getWordsForUnits(unitIds) {
+  const words = [];
+  courseData.forEach(lesson => {
+    if (unitIds.includes(lesson.id)) {
+      lesson.vocab.forEach(w => words.push({ ru: w.ru, zh: w.zh, lessonId: lesson.id }));
+    }
+  });
+  return words;
+}
+
+function renderUnitCheckboxes(containerId, countId, type, selectedUnits, onChange) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  courseData.forEach(lesson => {
+    const label = document.createElement('label');
+    label.className = 'unit-checkbox-item';
+    const checked = selectedUnits.includes(lesson.id);
+    label.innerHTML =
+      '<input type="checkbox" data-lesson-id="' + lesson.id + '"' + (checked ? ' checked' : '') + ' />' +
+      '<span>第 ' + lesson.id + ' 课</span>';
+    container.appendChild(label);
+  });
+  container.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const id = Number(cb.dataset.lessonId);
+      if (cb.checked) {
+        if (!selectedUnits.includes(id)) selectedUnits.push(id);
+      } else {
+        const i = selectedUnits.indexOf(id);
+        if (i !== -1) selectedUnits.splice(i, 1);
+      }
+      saveUnitSelection(type, selectedUnits);
+      updateUnitCount(countId, selectedUnits);
+      onChange();
+    });
+  });
+  updateUnitCount(countId, selectedUnits);
+}
+
+function updateUnitCount(countId, selectedUnits) {
+  const wordCount = getWordsForUnits(selectedUnits).length;
+  document.getElementById(countId).textContent =
+    '已选 ' + selectedUnits.length + ' / ' + courseData.length + ' 个单元，共 ' + wordCount + ' 个词汇';
+}
+
 // ---------- 词汇卡片 ----------
-let currentCategoryIndex = 0;
+let currentVocabWords = [];
 let currentCardIndex = 0;
 
-function populateCategorySelect() {
-  const select = document.getElementById('categorySelect');
-  select.innerHTML = '';
-  vocabData.forEach((cat, idx) => {
-    const opt = document.createElement('option');
-    opt.value = idx;
-    opt.textContent = cat.category;
-    select.appendChild(opt);
-  });
-  select.addEventListener('change', () => {
-    currentCategoryIndex = Number(select.value);
-    currentCardIndex = 0;
+function initVocabUnitSelector() {
+  vocabSelectedUnits = loadUnitSelection('vocab');
+  renderUnitCheckboxes('vocabUnitCheckboxes', 'vocabUnitCount', 'vocab', vocabSelectedUnits, refreshVocabWords);
+}
+
+document.getElementById('vocabSelectAllBtn').addEventListener('click', () => {
+  vocabSelectedUnits = courseData.map(l => l.id);
+  saveUnitSelection('vocab', vocabSelectedUnits);
+  renderUnitCheckboxes('vocabUnitCheckboxes', 'vocabUnitCount', 'vocab', vocabSelectedUnits, refreshVocabWords);
+  refreshVocabWords();
+});
+
+document.getElementById('vocabSelectNoneBtn').addEventListener('click', () => {
+  vocabSelectedUnits = [];
+  saveUnitSelection('vocab', vocabSelectedUnits);
+  renderUnitCheckboxes('vocabUnitCheckboxes', 'vocabUnitCount', 'vocab', vocabSelectedUnits, refreshVocabWords);
+  refreshVocabWords();
+});
+
+function refreshVocabWords() {
+  currentVocabWords = getWordsForUnits(vocabSelectedUnits);
+  currentCardIndex = 0;
+  const emptyState = document.getElementById('vocabEmptyState');
+  const cardArea = document.getElementById('vocabCardArea');
+  if (currentVocabWords.length === 0) {
+    emptyState.classList.remove('hidden');
+    cardArea.classList.add('hidden');
+  } else {
+    emptyState.classList.add('hidden');
+    cardArea.classList.remove('hidden');
     renderFlashcard();
-  });
+  }
 }
 
 function renderFlashcard() {
-  const cat = vocabData[currentCategoryIndex];
-  const word = cat.words[currentCardIndex];
+  if (currentVocabWords.length === 0) return;
+  const word = currentVocabWords[currentCardIndex];
   document.getElementById('cardRu').textContent = word.ru;
   document.getElementById('cardZh').textContent = word.zh;
-  document.getElementById('cardCounter').textContent = (currentCardIndex + 1) + ' / ' + cat.words.length;
+  document.getElementById('cardCounter').textContent = (currentCardIndex + 1) + ' / ' + currentVocabWords.length;
   document.getElementById('flashcard').classList.remove('flipped');
   markWordLearned(word.ru);
 }
@@ -360,20 +446,20 @@ document.getElementById('flashcard').addEventListener('click', function () {
 });
 
 document.getElementById('prevCardBtn').addEventListener('click', () => {
-  const cat = vocabData[currentCategoryIndex];
-  currentCardIndex = (currentCardIndex - 1 + cat.words.length) % cat.words.length;
+  if (currentVocabWords.length === 0) return;
+  currentCardIndex = (currentCardIndex - 1 + currentVocabWords.length) % currentVocabWords.length;
   renderFlashcard();
 });
 
 document.getElementById('nextCardBtn').addEventListener('click', () => {
-  const cat = vocabData[currentCategoryIndex];
-  currentCardIndex = (currentCardIndex + 1) % cat.words.length;
+  if (currentVocabWords.length === 0) return;
+  currentCardIndex = (currentCardIndex + 1) % currentVocabWords.length;
   renderFlashcard();
 });
 
 document.getElementById('speakAllBtn').addEventListener('click', () => {
-  const cat = vocabData[currentCategoryIndex];
-  speak(cat.words[currentCardIndex].ru);
+  if (currentVocabWords.length === 0) return;
+  speak(currentVocabWords[currentCardIndex].ru);
 });
 
 // ---------- 测验 ----------
@@ -382,12 +468,6 @@ let quizQuestions = [];
 let quizIndex = 0;
 let quizScore = 0;
 let answered = false;
-
-function getAllWords() {
-  const all = [];
-  vocabData.forEach(cat => cat.words.forEach(w => all.push(w)));
-  return all;
-}
 
 function shuffle(arr) {
   const a = arr.slice();
@@ -398,8 +478,42 @@ function shuffle(arr) {
   return a;
 }
 
+function initQuizUnitSelector() {
+  quizSelectedUnits = loadUnitSelection('quiz');
+  renderUnitCheckboxes('quizUnitCheckboxes', 'quizUnitCount', 'quiz', quizSelectedUnits, () => {});
+  document.getElementById('quizArea').classList.add('hidden');
+  document.getElementById('quizResult').classList.add('hidden');
+  document.getElementById('quizEmptyState').classList.add('hidden');
+}
+
+document.getElementById('quizSelectAllBtn').addEventListener('click', () => {
+  quizSelectedUnits = courseData.map(l => l.id);
+  saveUnitSelection('quiz', quizSelectedUnits);
+  renderUnitCheckboxes('quizUnitCheckboxes', 'quizUnitCount', 'quiz', quizSelectedUnits, () => {});
+});
+
+document.getElementById('quizSelectNoneBtn').addEventListener('click', () => {
+  quizSelectedUnits = [];
+  saveUnitSelection('quiz', quizSelectedUnits);
+  renderUnitCheckboxes('quizUnitCheckboxes', 'quizUnitCount', 'quiz', quizSelectedUnits, () => {});
+});
+
+document.getElementById('startQuizBtn').addEventListener('click', buildQuiz);
+
 function buildQuiz() {
-  const allWords = getAllWords();
+  const allWords = getWordsForUnits(quizSelectedUnits);
+  const emptyState = document.getElementById('quizEmptyState');
+  const quizArea = document.getElementById('quizArea');
+  const quizResult = document.getElementById('quizResult');
+  if (allWords.length < 4) {
+    emptyState.classList.remove('hidden');
+    emptyState.querySelector('p').textContent =
+      allWords.length === 0 ? '请至少选择一个单元才能开始测验' : '所选单元词汇量太少（至少需要 4 个词），请多选几个单元';
+    quizArea.classList.add('hidden');
+    quizResult.classList.add('hidden');
+    return;
+  }
+  emptyState.classList.add('hidden');
   const shuffled = shuffle(allWords);
   const pickCount = Math.min(QUIZ_LENGTH, allWords.length);
   quizQuestions = shuffled.slice(0, pickCount).map(word => {
@@ -409,8 +523,8 @@ function buildQuiz() {
   });
   quizIndex = 0;
   quizScore = 0;
-  document.getElementById('quizResult').classList.add('hidden');
-  document.getElementById('quizArea').classList.remove('hidden');
+  quizResult.classList.add('hidden');
+  quizArea.classList.remove('hidden');
   renderQuizQuestion();
 }
 
@@ -475,8 +589,10 @@ function finishQuiz() {
   refreshHeaderAndStats();
 }
 
-document.getElementById('restartQuizBtn').addEventListener('click', buildQuiz);
-
+document.getElementById('restartQuizBtn').addEventListener('click', () => {
+  document.getElementById('quizResult').classList.add('hidden');
+  document.getElementById('quizArea').classList.add('hidden');
+});
 // ---------- 进度重置 ----------
 document.getElementById('resetProgressBtn').addEventListener('click', () => {
   if (confirm('确定要重置所有学习记录吗？此操作不可恢复。')) {
@@ -529,9 +645,9 @@ function enterApp(username, role) {
   renderCourseList();
   renderCourseDetail();
   renderAlphabet();
-  populateCategorySelect();
-  renderFlashcard();
-  buildQuiz();
+  initVocabUnitSelector();
+  refreshVocabWords();
+  initQuizUnitSelector();
   refreshHeaderAndStats();
 }
 
