@@ -118,33 +118,63 @@
 
       <!-- 词汇卡片 -->
       <section id="vocab" class="tab-panel">
+        <div class="unit-selector-panel">
+          <div class="unit-selector-header">
+            <span class="unit-selector-title">📚 选择要学习的单元（走遍俄罗斯 1，可多选）</span>
+            <div class="unit-selector-actions">
+              <button class="mini-btn" id="vocabSelectAllBtn">全选</button>
+              <button class="mini-btn" id="vocabSelectNoneBtn">清空</button>
+            </div>
+          </div>
+          <div class="unit-checkbox-grid" id="vocabUnitCheckboxes"></div>
+          <p class="unit-selector-count" id="vocabUnitCount"></p>
+        </div>
         <div class="vocab-controls">
-          <select id="categorySelect"></select>
           <button id="speakAllBtn">🔊 朗读</button>
         </div>
-        <div class="flashcard-wrap">
-          <div class="flashcard" id="flashcard">
-            <div class="flashcard-inner">
-              <div class="flashcard-front">
-                <span id="cardRu">Привет</span>
-              </div>
-              <div class="flashcard-back">
-                <span id="cardZh">你好</span>
+        <div id="vocabEmptyState" class="empty-state hidden">
+          <p>请至少选择一个单元才能开始学习词汇</p>
+        </div>
+        <div id="vocabCardArea">
+          <div class="flashcard-wrap">
+            <div class="flashcard" id="flashcard">
+              <div class="flashcard-inner">
+                <div class="flashcard-front">
+                  <span id="cardRu">Привет</span>
+                </div>
+                <div class="flashcard-back">
+                  <span id="cardZh">你好</span>
+                </div>
               </div>
             </div>
           </div>
+          <div class="flashcard-actions">
+            <button id="prevCardBtn">⬅ 上一个</button>
+            <span id="cardCounter">1 / 9</span>
+            <button id="nextCardBtn">下一个 ➡</button>
+          </div>
+          <p class="hint">点击卡片翻转查看释义</p>
         </div>
-        <div class="flashcard-actions">
-          <button id="prevCardBtn">⬅ 上一个</button>
-          <span id="cardCounter">1 / 9</span>
-          <button id="nextCardBtn">下一个 ➡</button>
-        </div>
-        <p class="hint">点击卡片翻转查看释义</p>
       </section>
 
       <!-- 测验 -->
       <section id="quiz" class="tab-panel">
-        <div id="quizArea">
+        <div class="unit-selector-panel">
+          <div class="unit-selector-header">
+            <span class="unit-selector-title">📚 选择要测验的单元（走遍俄罗斯 1，可多选）</span>
+            <div class="unit-selector-actions">
+              <button class="mini-btn" id="quizSelectAllBtn">全选</button>
+              <button class="mini-btn" id="quizSelectNoneBtn">清空</button>
+            </div>
+          </div>
+          <div class="unit-checkbox-grid" id="quizUnitCheckboxes"></div>
+          <p class="unit-selector-count" id="quizUnitCount"></p>
+          <button id="startQuizBtn" class="auth-primary-btn quiz-start-btn">开始测验</button>
+        </div>
+        <div id="quizEmptyState" class="empty-state hidden">
+          <p>请至少选择一个单元才能开始测验</p>
+        </div>
+        <div id="quizArea" class="hidden">
           <div class="quiz-progress">
             <span id="quizProgress">第 1 / 10 题</span>
             <span id="quizScore">得分：0</span>
