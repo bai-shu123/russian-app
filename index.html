@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>俄语学习 | Учи русский</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ==================== 登录 / 注册 界面 ==================== -->
+  <div id="authOverlay" class="auth-overlay">
+    <div class="auth-box">
+      <h1 class="auth-title">🇷🇺 俄语学习</h1>
+
+      <!-- 登录表单 -->
+      <div id="loginForm" class="auth-form">
+        <h2>登录</h2>
+        <input type="text" id="loginUsername" placeholder="用户名或邮箱" />
+        <input type="password" id="loginPassword" placeholder="密码" />
+        <button id="loginSubmitBtn" class="auth-primary-btn">登录</button>
+        <p class="auth-error" id="loginError"></p>
+        <div class="auth-links">
+          <a href="#" id="showRegisterLink">注册新账号</a>
+          <a href="#" id="showForgotLink">忘记密码？</a>
+        </div>
+      </div>
+
+      <!-- 注册表单 -->
+      <div id="registerForm" class="auth-form hidden">
+        <h2>注册账号</h2>
+        <input type="text" id="registerUsername" placeholder="用户名" />
+        <input type="email" id="registerEmail" placeholder="绑定邮箱" />
+        <input type="password" id="registerPassword" placeholder="密码（至少 6 位）" />
+        <input type="password" id="registerPassword2" placeholder="确认密码" />
+        <button id="registerSubmitBtn" class="auth-primary-btn">注册并发送验证码</button>
+        <p class="auth-error" id="registerError"></p>
+        <div class="auth-links">
+          <a href="#" id="backToLoginFromRegister">返回登录</a>
+        </div>
+      </div>
+
+      <!-- 邮箱验证码 -->
+      <div id="verifyForm" class="auth-form hidden">
+        <h2>邮箱验证</h2>
+        <p class="auth-desc">验证码已发送至 <span id="verifyEmailTarget"></span>（演示模式，验证码见下方提示）</p>
+        <div class="auth-demo-code" id="demoCodeBox"></div>
+        <input type="text" id="verifyCodeInput" placeholder="请输入 6 位验证码" maxlength="6" />
+        <button id="verifySubmitBtn" class="auth-primary-btn">完成验证并登录</button>
+        <p class="auth-error" id="verifyError"></p>
+        <div class="auth-links">
+          <a href="#" id="resendCodeLink">重新发送验证码</a>
+          <a href="#" id="backToLoginFromVerify">返回登录</a>
+        </div>
+      </div>
+
+      <!-- 忘记密码：请求重置 -->
+      <div id="forgotForm" class="auth-form hidden">
+        <h2>找回密码</h2>
+        <input type="text" id="forgotInput" placeholder="用户名或绑定邮箱" />
+        <button id="forgotSubmitBtn" class="auth-primary-btn">发送重置验证码</button>
+        <p class="auth-error" id="forgotError"></p>
+        <div class="auth-links">
+          <a href="#" id="backToLoginFromForgot">返回登录</a>
+        </div>
+      </div>
+
+      <!-- 忘记密码：重置新密码 -->
+      <div id="resetForm" class="auth-form hidden">
+        <h2>设置新密码</h2>
+        <p class="auth-desc">验证码已发送至 <span id="resetEmailTarget"></span>（演示模式，验证码见下方提示）</p>
+        <div class="auth-demo-code" id="resetDemoCodeBox"></div>
+        <input type="text" id="resetCodeInput" placeholder="请输入 6 位验证码" maxlength="6" />
+        <input type="password" id="resetNewPassword" placeholder="新密码（至少 6 位）" />
+        <button id="resetSubmitBtn" class="auth-primary-btn">重置密码</button>
+        <p class="auth-error" id="resetError"></p>
+        <div class="auth-links">
+          <a href="#" id="backToLoginFromReset">返回登录</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 主应用界面 ==================== -->
+  <div id="mainApp" class="hidden">
+    <header class="app-header">
+      <h1>🇷🇺 俄语学习</h1>
+      <div class="header-right">
+        <div class="streak-badge" id="streakBadge">🔥 连续学习 0 天</div>
+        <div class="user-badge" id="userBadge"></div>
+        <button id="logoutBtn" class="logout-btn">退出登录</button>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="course">课程</button>
+      <button class="tab-btn" data-tab="alphabet">字母表</button>
+      <button class="tab-btn" data-tab="vocab">词汇卡片</button>
+      <button class="tab-btn" data-tab="quiz">测验</button>
+      <button class="tab-btn" data-tab="progress">我的进度</button>
+      <button class="tab-btn hidden" data-tab="admin" id="adminTabBtn">管理员面板</button>
+    </nav>
+
+    <main>
+      <!-- 课程 -->
+      <section id="course" class="tab-panel active">
+        <div class="course-layout">
+          <div class="course-list" id="courseList"></div>
+          <div class="course-detail" id="courseDetail"></div>
+        </div>
+      </section>
+
+      <!-- 字母表 -->
+      <section id="alphabet" class="tab-panel">
+        <p class="section-desc">点击字母卡片朗读发音，共 33 个西里尔字母</p>
+        <div class="alphabet-grid" id="alphabetGrid"></div>
+      </section>
+
+      <!-- 词汇卡片 -->
+      <section id="vocab" class="tab-panel">
+        <div class="vocab-controls">
+          <select id="categorySelect"></select>
+          <button id="speakAllBtn">🔊 朗读</button>
+        </div>
+        <div class="flashcard-wrap">
+          <div class="flashcard" id="flashcard">
+            <div class="flashcard-inner">
+              <div class="flashcard-front">
+                <span id="cardRu">Привет</span>
+              </div>
+              <div class="flashcard-back">
+                <span id="cardZh">你好</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="flashcard-actions">
+          <button id="prevCardBtn">⬅ 上一个</button>
+          <span id="cardCounter">1 / 9</span>
+          <button id="nextCardBtn">下一个 ➡</button>
+        </div>
+        <p class="hint">点击卡片翻转查看释义</p>
+      </section>
+
+      <!-- 测验 -->
+      <section id="quiz" class="tab-panel">
+        <div id="quizArea">
+          <div class="quiz-progress">
+            <span id="quizProgress">第 1 / 10 题</span>
+            <span id="quizScore">得分：0</span>
+          </div>
+          <div class="quiz-question" id="quizQuestion">加载中...</div>
+          <div class="quiz-options" id="quizOptions"></div>
+          <div id="quizFeedback" class="quiz-feedback"></div>
+          <button id="nextQuestionBtn" class="hidden">下一题</button>
+        </div>
+        <div id="quizResult" class="hidden">
+          <h2>测验完成！</h2>
+          <p id="quizFinalScore"></p>
+          <button id="restartQuizBtn">再测一次</button>
+        </div>
+      </section>
+
+      <!-- 进度 -->
+      <section id="progress" class="tab-panel">
+        <div class="progress-cards">
+          <div class="stat-card">
+            <div class="stat-num" id="statStreak">0</div>
+            <div class="stat-label">连续学习天数</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" id="statQuizzes">0</div>
+            <div class="stat-label">完成测验次数</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" id="statBestScore">0</div>
+            <div class="stat-label">最佳得分</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" id="statWordsLearned">0</div>
+            <div class="stat-label">已学词汇数</div>
+          </div>
+        </div>
+        <button id="resetProgressBtn" class="danger-btn">重置学习记录</button>
+      </section>
+
+      <!-- 管理员面板 -->
+      <section id="admin" class="tab-panel">
+        <h2 class="admin-title">👑 管理员面板</h2>
+        <p class="section-desc">查看所有注册用户</p>
+        <div id="adminUserList" class="admin-user-list"></div>
+      </section>
+    </main>
+
+    <footer>
+      <p>坚持每天学一点，掌握俄语不是梦 · Удачи! 🍀</p>
+    </footer>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="course.js"></script>
+  <script src="auth.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
