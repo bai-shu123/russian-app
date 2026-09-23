@@ -1,7 +1,8 @@
 // ---------- 工具函数 ----------
 function speak(text) {
   if (!('speechSynthesis' in window)) return;
-  const utter = new SpeechSynthesisUtterance(text);
+  const spokenText = String(text).normalize('NFD').replace(/[\u0301]/g, '');
+  const utter = new SpeechSynthesisUtterance(spokenText);
   utter.lang = 'ru-RU';
   utter.rate = 0.85;
   const voices = window.speechSynthesis.getVoices();
@@ -12,6 +13,35 @@ function speak(text) {
 }
 
 // ===================================================================
+// 俄语正文通常省略重音符号，学习界面在词汇处补充重音。
+const stressMarks = {
+  'здравствуйте': 'здра́вствуйте', 'привет': 'приве́т', 'меня зовут…': 'меня́ зову́т…',
+  'как тебя зовут?': 'как тебя́ зову́т?', 'очень приятно': 'о́чень прия́тно',
+  'студент / студентка': 'студе́нт / студе́нтка', 'друг / подруга': 'дру́г / подру́га',
+  'да / нет': 'да́ / не́т', 'спасибо': 'спаси́бо', 'пожалуйста': 'пожа́луйста',
+  'семья': 'семья́', 'мама / папа': 'ма́ма / па́па', 'сын / дочь': 'сын / дочь',
+  'брат / сестра': 'бра́т / сестра́', 'бабушка / дедушка': 'ба́бушка / де́душка',
+  'муж / жена': 'муж / жена́', 'большой / маленький': 'большо́й / ма́ленький',
+  'мой / моя / моё': 'мо́й / моя́ / моё́', 'один, два, три': 'оди́н, два́, три́',
+  'четыре, пять, шесть': 'четы́ре, пять, шесть', 'семь, восемь, девять, десять': 'семь, во́семь, де́вять, де́сять',
+  'сколько тебе лет?': 'ско́лько тебе́ лет?', 'мне … год / года / лет': 'мне … го́д / го́да / лет',
+  'старше / младше': 'ста́рше / мла́дше', 'утро / день / вечер / ночь': 'у́тро / де́нь / ве́чер / ночь',
+  'вставать': 'встава́ть', 'завтракать / обедать / ужинать': 'за́втракать / обе́дать / у́жинать',
+  'работать / учиться': 'рабо́тать / учи́ться', 'отдыхать': 'отдыха́ть', 'ложиться спать': 'ложи́ться спать',
+  'дом / квартира': 'дом / кварти́ра', 'комната / кухня': 'ко́мната / ку́хня', 'улица / город': 'у́лица / го́род',
+  'магазин / школа / парк': 'магази́н / шко́ла / парк', 'жить': 'жить', 'находиться': 'находи́ться',
+  'магазин / рынок': 'магази́н / ры́нок', 'хлеб / молоко / яблоко': 'хлеб / молоко́ / я́блоко',
+  'сколько стоит?': 'ско́лько сто́ит?', 'рубль / рубля / рублей': 'ру́бль / рубля́ / рубле́й',
+  'покупать / купить': 'покупа́ть / купи́ть', 'дорого / дёшево': 'до́рого / дёшево',
+  'весна / лето / осень / зима': 'весна́ / ле́то / о́сень / зима́', 'тепло / холодно / жарко': 'тепло́ / хо́лодно / жа́рко',
+  'идёт дождь / идёт снег': 'идёт до́ждь / идёт сне́г', 'солнце / небо / ветер': 'со́лнце / не́бо / ве́тер',
+  'какая сегодня погода?': 'кака́я сего́дня пого́да?', 'сегодня / вчера / завтра': 'сего́дня / вчера́ / за́втра',
+  'неделя / месяц / год': 'неде́ля / ме́сяц / год', 'быть': 'быть', 'буду': 'бу́ду', 'ходить / пойти': 'ходи́ть / пойти́'
+};
+
+function addStressMarks(text) {
+  return stressMarks[text] || text;
+}
 // 登录 / 注册 / 邮箱验证 / 找回密码 逻辑
 // ===================================================================
 let pendingRegisterUsername = null;
@@ -281,7 +311,7 @@ function renderCourseDetail() {
   let vocabHtml = '<table class="vocab-table">';
   vocabHtml += '<tr><th>俄语</th><th>词性</th><th>释义</th><th></th></tr>';
   lesson.vocab.forEach(w => {
-    vocabHtml += '<tr><td class="vocab-ru">' + w.ru + '</td><td class="vocab-pos">' + w.pos + '</td><td>' + w.zh + '</td><td><button class="mini-speak-btn" data-word="' + w.ru.replace(/"/g, '&quot;') + '">🔊</button></td></tr>';
+    vocabHtml += '<tr><td class="vocab-ru">' + addStressMarks(w.ru) + '</td><td class="vocab-pos">' + w.pos + '</td><td>' + w.zh + '</td><td><button class="mini-speak-btn" data-word="' + w.ru.replace(/"/g, '&quot;') + '">🔊</button></td></tr>';
   });
   vocabHtml += '</table>';
 
@@ -373,7 +403,7 @@ function getWordsForUnits(unitIds) {
   const words = [];
   courseData.forEach(lesson => {
     if (unitIds.includes(lesson.id)) {
-      lesson.vocab.forEach(w => words.push({ ru: w.ru, zh: w.zh, lessonId: lesson.id }));
+      lesson.vocab.forEach(w => words.push({ ru: w.ru, displayRu: addStressMarks(w.ru), zh: w.zh, lessonId: lesson.id }));
     }
   });
   return words;
@@ -455,7 +485,7 @@ function refreshVocabWords() {
 function renderFlashcard() {
   if (currentVocabWords.length === 0) return;
   const word = currentVocabWords[currentCardIndex];
-  document.getElementById('cardRu').textContent = word.ru;
+  document.getElementById('cardRu').textContent = word.displayRu || addStressMarks(word.ru);
   document.getElementById('cardZh').textContent = word.zh;
   document.getElementById('cardCounter').textContent = (currentCardIndex + 1) + ' / ' + currentVocabWords.length;
   document.getElementById('flashcard').classList.remove('flipped');
