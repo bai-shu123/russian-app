@@ -220,6 +220,26 @@ function markWordLearned(ru) {
   }
 }
 
+// ---------- 留言反馈 ----------
+const FEEDBACK_KEY = 'ru_learning_feedback_v1';
+function loadFeedback() { const raw = localStorage.getItem(FEEDBACK_KEY); if (raw) { try { const data = JSON.parse(raw); if (Array.isArray(data)) return data; } catch (e) {} } return []; }
+function saveFeedback(items) { localStorage.setItem(FEEDBACK_KEY, JSON.stringify(items)); }
+function escapeFeedbackHtml(value) { return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;'); }
+function formatFeedbackTime(timestamp) { return new Date(timestamp).toLocaleString('zh-CN', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+function renderFeedbackCard(item, isAdminView) {
+  const replied = Boolean(item.reply);
+  const replyHtml = replied ? '<div class="feedback-reply"><strong>管理员回复</strong><p>' + escapeFeedbackHtml(item.reply) + '</p><time>' + formatFeedbackTime(item.repliedAt) + '</time></div>' : '<div class="feedback-waiting">我们会认真阅读你的留言。</div>';
+  const adminReplyHtml = isAdminView && !replied ? '<div class="admin-reply-box"><textarea class="admin-reply-input" data-feedback-id="' + item.id + '" rows="3" maxlength="500" placeholder="写下给用户的回复"></textarea><button class="reply-btn" data-feedback-id="' + item.id + '">发送回复</button></div>' : '';
+  return '<article class="feedback-item"><div class="feedback-item-top"><div><span class="feedback-type">' + escapeFeedbackHtml(item.type) + '</span><h4>' + escapeFeedbackHtml(item.title) + '</h4></div><span class="feedback-badge ' + (replied ? 'replied' : 'pending') + '">' + (replied ? '已回复' : '待回复') + '</span></div><p class="feedback-content">' + escapeFeedbackHtml(item.content) + '</p><div class="feedback-meta"><span>' + (isAdminView ? '来自 ' + escapeFeedbackHtml(item.username) : '提交于') + '</span><time>' + formatFeedbackTime(item.createdAt) + '</time></div>' + replyHtml + adminReplyHtml + '</article>';
+}
+function renderFeedback() {
+  const all = loadFeedback(); const mine = all.filter(item => item.username === currentUsername); const myList = document.getElementById('myFeedbackList'); const allList = document.getElementById('allFeedbackList'); const adminPanel = document.getElementById('adminFeedbackPanel'); if (!myList) return;
+  const pendingCount = all.filter(item => !item.reply).length; document.getElementById('feedbackCount').textContent = mine.length + ' 条'; document.getElementById('feedbackStatus').textContent = mine.length ? '已留言 ' + mine.length + ' 条' : '欢迎反馈'; document.getElementById('adminFeedbackCount').textContent = pendingCount + ' 条待处理';
+  myList.innerHTML = mine.length ? mine.slice().reverse().map(item => renderFeedbackCard(item, false)).join('') : '<div class="feedback-empty"><strong>还没有留言</strong><span>你的第一条反馈会出现在这里。</span></div>';
+  if (currentRole === 'admin') { adminPanel.classList.remove('hidden'); allList.innerHTML = all.length ? all.slice().reverse().map(item => renderFeedbackCard(item, true)).join('') : '<div class="feedback-empty"><strong>暂时没有用户留言</strong><span>新的留言会显示在这里。</span></div>'; allList.querySelectorAll('.reply-btn').forEach(btn => btn.addEventListener('click', () => { const input = allList.querySelector('.admin-reply-input[data-feedback-id="' + btn.dataset.feedbackId + '"]'); const reply = input.value.trim(); if (!reply) { input.focus(); return; } const updated = loadFeedback(); const target = updated.find(item => item.id === btn.dataset.feedbackId); if (!target) return; target.reply = reply; target.repliedAt = Date.now(); saveFeedback(updated); renderFeedback(); })); } else { adminPanel.classList.add('hidden'); }
+}
+function initFeedback() { const form = document.getElementById('feedbackForm'); const content = document.getElementById('feedbackContent'); const counter = document.getElementById('feedbackContentCount'); content.addEventListener('input', () => { counter.textContent = content.value.length; }); form.addEventListener('submit', event => { event.preventDefault(); const title = document.getElementById('feedbackTitle').value.trim(); const text = content.value.trim(); if (!title || !text || !currentUsername) return; const items = loadFeedback(); items.push({ id: 'feedback_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8), username: currentUsername, type: document.getElementById('feedbackType').value, title, content: text, createdAt: Date.now(), reply: '', repliedAt: null }); saveFeedback(items); form.reset(); counter.textContent = '0'; document.getElementById('feedbackFormMessage').textContent = '留言已发送，感谢你的反馈！'; renderFeedback(); window.setTimeout(() => { document.getElementById('feedbackFormMessage').textContent = ''; }, 3000); }); }
+
 // ---------- 标签切换 ----------
 const tabBtns = document.querySelectorAll('.tab-btn');
 const panels = document.querySelectorAll('.tab-panel');
@@ -230,6 +250,7 @@ tabBtns.forEach(btn => {
     btn.classList.add('active');
     document.getElementById(btn.dataset.tab).classList.add('active');
     if (btn.dataset.tab === 'admin') renderAdminPanel();
+    if (btn.dataset.tab === 'feedback') renderFeedback();
   });
 });
 
@@ -644,6 +665,7 @@ function enterApp(username, role) {
   progress = updateStreak(loadProgress(username));
   renderCourseList();
   renderCourseDetail();
+  renderFeedback();
   renderAlphabet();
   initVocabUnitSelector();
   refreshVocabWords();
@@ -653,6 +675,7 @@ function enterApp(username, role) {
 
 // ---------- 初始化 ----------
 function init() {
+  initFeedback();
   if ('speechSynthesis' in window) {
     window.speechSynthesis.onvoiceschanged = () => {};
   }
