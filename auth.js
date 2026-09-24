@@ -1,4 +1,5 @@
 // Supabase 云端认证：账号、会话和用户资料不再保存在单个浏览器中。
+const APP_URL = 'https://bai-shu123.github.io/russian-app/';
 let currentUserId = null;
 const supabaseClient = window.supabase.createClient(
   window.SUPABASE_CONFIG.url,
@@ -64,11 +65,21 @@ async function registerUser(username, email, password) {
   const { data, error } = await supabaseClient.auth.signUp({
     email,
     password,
-    options: { data: { username } }
+    options: { data: { username }, emailRedirectTo: APP_URL }
   });
   if (error) return { ok: false, error: authErrorMessage(error) };
   if (data.session && data.user) await ensureProfile(data.user);
   return { ok: true, email, needsConfirmation: !data.session };
+}
+
+async function resendConfirmation(email) {
+  const { error } = await supabaseClient.auth.resend({
+    type: 'signup',
+    email: email.trim().toLowerCase(),
+    options: { emailRedirectTo: APP_URL }
+  });
+  if (error) return { ok: false, error: authErrorMessage(error) };
+  return { ok: true };
 }
 
 async function loginUser(email, password) {
@@ -119,6 +130,7 @@ window.Auth = {
   ensureProfile,
   registerUser,
   loginUser,
+  resendConfirmation,
   logoutUser,
   requestPasswordReset,
   resetPassword,

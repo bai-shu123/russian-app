@@ -128,9 +128,19 @@ document.getElementById('verifySubmitBtn').addEventListener('click', () => {
   document.getElementById('loginError').textContent = '请先完成邮箱确认，然后使用注册邮箱登录';
 });
 
-document.getElementById('resendCodeLink').addEventListener('click', (e) => {
+document.getElementById('resendCodeLink').addEventListener('click', async (e) => {
   e.preventDefault();
-  document.getElementById('verifyError').textContent = '确认邮件由 Supabase 发送，请检查收件箱和垃圾邮件文件夹';
+  const errorEl = document.getElementById('verifyError');
+  errorEl.textContent = '';
+  try {
+    const email = document.getElementById('verifyEmailTarget').textContent.trim();
+    const result = await window.Auth.resendConfirmation(email);
+    errorEl.textContent = result.ok
+      ? '确认邮件已重新发送，请检查收件箱和垃圾邮件文件夹'
+      : result.error;
+  } catch (error) {
+    errorEl.textContent = error.message || '邮件发送失败，请稍后重试';
+  }
 });
 
 // ---- 忘记密码 ----
@@ -723,7 +733,17 @@ async function enterApp(username, role) {
 }
 
 // ---------- 初始化 ----------
+function showAuthCallbackError() {
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const error = params.get('error_description') || params.get('error');
+  if (error) {
+    const loginError = document.getElementById('loginError');
+    loginError.textContent = '邮箱确认失败：' + decodeURIComponent(error.replace(/\+/g, ' '));
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
+}
 async function init() {
+  showAuthCallbackError();
   initFeedback();
   if ('speechSynthesis' in window) {
     window.speechSynthesis.onvoiceschanged = () => {};
