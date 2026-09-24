@@ -52,7 +52,11 @@ body {
   flex-wrap: wrap;
 }
 
-.tab-btn {
+.tab-btn,
+.grammar-nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   background: var(--card-bg);
   color: var(--muted);
@@ -62,10 +66,12 @@ body {
   cursor: pointer;
   box-shadow: var(--shadow);
   transition: all 0.2s;
+  text-decoration: none;
 }
 
 .tab-btn.active,
-.tab-btn:hover {
+.tab-btn:hover,
+.grammar-nav-link:hover {
   background: var(--primary);
   color: white;
 }

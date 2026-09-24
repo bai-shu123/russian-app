@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>俄语变位与变格 | Russian App</title>
+  <style>
+    :root { --ink:#19324a; --muted:#64748b; --line:#d8e2ec; --paper:#f6f9fc; --blue:#2864a6; --blue-soft:#e8f1fb; --gold:#c78624; --white:#fff; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--paper); font:16px/1.6 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; }
+    a { color:inherit; }
+    .topbar { position:sticky; top:0; z-index:2; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 5vw; background:rgba(255,255,255,.96); border-bottom:1px solid var(--line); }
+    .brand { font-weight:800; text-decoration:none; letter-spacing:.02em; }
+    .back { color:var(--blue); text-decoration:none; white-space:nowrap; }
+    .layout { display:grid; grid-template-columns:230px minmax(0,1fr); max-width:1240px; margin:0 auto; }
+    aside { position:sticky; top:65px; align-self:start; padding:30px 16px 40px 5vw; }
+    aside h1 { margin:0 0 6px; font-size:1.35rem; }
+    aside p { margin:0 0 20px; color:var(--muted); font-size:.88rem; }
+    .tabs { display:grid; gap:7px; }
+    .tab { border:1px solid transparent; border-radius:7px; padding:9px 11px; background:transparent; color:var(--ink); text-align:left; cursor:pointer; font:inherit; }
+    .tab:hover,.tab.active { border-color:#bcd2e7; background:var(--blue-soft); color:var(--blue); }
+    main { min-width:0; padding:34px 5vw 70px 28px; }
+    .hero { margin-bottom:25px; }
+    .eyebrow { margin:0 0 4px; color:var(--gold); font-size:.78rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+    h2 { margin:0; font-size:clamp(1.7rem,3vw,2.6rem); line-height:1.2; }
+    .hero p { max-width:760px; margin:12px 0 0; color:var(--muted); }
+    .panel { display:none; }
+    .panel.active { display:block; animation:show .18s ease-out; }
+    @keyframes show { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+    .note { margin:0 0 17px; padding:13px 15px; border-left:3px solid var(--gold); background:#fffaf1; color:#60451c; }
+    .table-wrap { overflow-x:auto; border:1px solid var(--line); border-radius:8px; background:var(--white); box-shadow:0 3px 12px rgba(25,50,74,.05); }
+    table { width:100%; min-width:650px; border-collapse:collapse; }
+    th,td { padding:12px 14px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    tr:last-child td { border-bottom:0; }
+    th { background:#eef4fa; color:#385875; font-size:.88rem; font-weight:800; white-space:nowrap; }
+    td:first-child { width:145px; color:#52677b; font-weight:700; white-space:nowrap; }
+    .ending { color:var(--blue); font-weight:800; text-decoration:underline; text-decoration-color:#e9b957; text-underline-offset:3px; }
+    .example { margin-top:18px; padding:16px 18px; border:1px solid var(--line); background:#fff; border-radius:8px; }
+    .example strong { display:block; margin-bottom:5px; }
+    .legend { margin-top:20px; color:var(--muted); font-size:.9rem; }
+    @media (max-width:760px) {
+      .topbar { padding:12px 18px; }
+      .layout { display:block; }
+      aside { position:static; padding:22px 18px 0; }
+      aside h1 { font-size:1.15rem; }
+      .tabs { display:flex; overflow-x:auto; gap:8px; padding-bottom:5px; scrollbar-width:thin; }
+      .tab { flex:0 0 auto; white-space:nowrap; }
+      main { padding:23px 18px 50px; }
+      table { min-width:700px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">Russian App</a>
+    <a class="back" href="index.html">返回学习首页</a>
+  </header>
+  <div class="layout">
+    <aside>
+      <h1>俄语语法表</h1>
+      <p>变格、变位与常用例词</p>
+      <nav class="tabs" aria-label="语法模块">
+        <button class="tab active" data-panel="noun">名词变格</button>
+        <button class="tab" data-panel="adjective">形容词变格</button>
+        <button class="tab" data-panel="verb">动词变位</button>
+        <button class="tab" data-panel="number">数词变格</button>
+        <button class="tab" data-panel="possessive">物主代词</button>
+        <button class="tab" data-panel="demonstrative">指示与限定代词</button>
+      </nav>
+    </aside>
+    <main>
+      <section class="hero">
+        <p class="eyebrow">Russian Grammar</p>
+        <h2>俄语变位与变格</h2>
+        <p>先看词尾，再观察词在句子中的作用。蓝色下划线部分是本表重点关注的词尾。</p>
+      </section>
+
+      <section class="panel active" id="noun">
+        <div class="note"><b>名词六格：</b>主格 кто? что?；属格 кого? чего?；与格 кому? чему?；宾格 кого? что?；工具格 кем? чем?；前置格 о ком? о чём?。以下对照阳性、阴性、中性和复数形式。</div>
+        <div class="table-wrap"><table><thead><tr><th>格</th><th>阳性：стол</th><th>阴性：кни́га</th><th>中性：окно́</th><th>复数：столы́</th><th>常见用法</th></tr></thead><tbody>
+          <tr><td>主格</td><td>стол</td><td>кни́га</td><td>окно́</td><td>стол<span class="ending">ы́</span></td><td>主语、词典形式</td></tr><tr><td>属格</td><td>стол<span class="ending">а</span></td><td>кни́г<span class="ending">и</span></td><td>окн<span class="ending">а́</span></td><td>стол<span class="ending">о́в</span></td><td>“的”、没有、数量</td></tr>
+          <tr><td>与格</td><td>стол<span class="ending">у</span></td><td>кни́г<span class="ending">е</span></td><td>окн<span class="ending">у́</span></td><td>стол<span class="ending">а́м</span></td><td>给谁、对谁</td></tr><tr><td>宾格</td><td>стол</td><td>кни́г<span class="ending">у</span></td><td>окно́</td><td>стол<span class="ending">ы́</span></td><td>直接宾语；有生命形式另有变化</td></tr>
+          <tr><td>工具格</td><td>стол<span class="ending">ом</span></td><td>кни́г<span class="ending">ой</span></td><td>окн<span class="ending">о́м</span></td><td>стол<span class="ending">а́ми</span></td><td>用、和、被</td></tr><tr><td>前置格</td><td>стол<span class="ending">е</span></td><td>кни́г<span class="ending">е</span></td><td>окн<span class="ending">е́</span></td><td>стол<span class="ending">а́х</span></td><td>о/в/на 后</td></tr>
+        </tbody></table></div>
+        <div class="example"><strong>例句</strong>Я чита́ю кни́г<span class="ending">у</span>. 我正在读书。<br>Кни́га лежи́т на стол<span class="ending">е</span>. 书在桌子上。</div>
+      </section>
+
+      <section class="panel" id="adjective">
+        <div class="note"><b>形容词：</b>形容词必须与名词在性、数、格上保持一致。以 <i>но́вый</i>（新的）和 <i>си́няя</i>（蓝色的）为例。</div>
+        <div class="table-wrap"><table><thead><tr><th>格</th><th>阳性（но́вый стол）</th><th>阴性（си́няя кни́га）</th><th>中性（но́вое окно́）</th><th>复数（но́вые столы́）</th></tr></thead><tbody>
+          <tr><td>主格</td><td>но́вый</td><td>си́няя</td><td>но́вое</td><td>но́вые</td></tr><tr><td>属格</td><td>но́в<span class="ending">ого</span></td><td>си́н<span class="ending">ей</span></td><td>но́в<span class="ending">ого</span></td><td>но́в<span class="ending">ых</span></td></tr>
+          <tr><td>与格</td><td>но́в<span class="ending">ому</span></td><td>си́н<span class="ending">ей</span></td><td>но́в<span class="ending">ому</span></td><td>но́в<span class="ending">ым</span></td></tr><tr><td>宾格</td><td>но́вый / но́в<span class="ending">ого</span></td><td>си́н<span class="ending">юю</span></td><td>но́вое</td><td>но́вые / но́в<span class="ending">ых</span></td></tr>
+          <tr><td>工具格</td><td>но́в<span class="ending">ым</span></td><td>си́н<span class="ending">ей</span></td><td>но́в<span class="ending">ым</span></td><td>но́в<span class="ending">ыми</span></td></tr><tr><td>前置格</td><td>но́в<span class="ending">ом</span></td><td>си́н<span class="ending">ей</span></td><td>но́в<span class="ending">ом</span></td><td>но́в<span class="ending">ых</span></td></tr>
+        </tbody></table></div>
+        <div class="example"><strong>观察</strong>阳性无生命宾格等于主格：ви́жу но́вый стол；阳性有生命宾格通常等于属格：ви́жу но́вого студе́нта。</div>
+      </section>
+
+      <section class="panel" id="verb">
+        <div class="note"><b>动词现在时：</b>第一变位常见词尾是 -ю/-ешь/-ет/-ем/-ете/-ют；第二变位常见词尾是 -ю/-ишь/-ит/-им/-ите/-ят。以 <i>чита́ть</i> 和 <i>говори́ть</i> 为例。</div>
+        <div class="table-wrap"><table><thead><tr><th>人称</th><th>чита́ть（读，第一变位）</th><th>говори́ть（说，第二变位）</th><th>中文</th></tr></thead><tbody>
+          <tr><td>я</td><td>чита<span class="ending">ю</span></td><td>говор<span class="ending">ю</span></td><td>我</td></tr><tr><td>ты</td><td>чита<span class="ending">ешь</span></td><td>говор<span class="ending">ишь</span></td><td>你</td></tr>
+          <tr><td>он/она/оно</td><td>чита<span class="ending">ет</span></td><td>говор<span class="ending">ит</span></td><td>他/她/它</td></tr><tr><td>мы</td><td>чита<span class="ending">ем</span></td><td>говор<span class="ending">им</span></td><td>我们</td></tr>
+          <tr><td>вы</td><td>чита<span class="ending">ете</span></td><td>говор<span class="ending">ите</span></td><td>你们/您</td></tr><tr><td>они</td><td>чита<span class="ending">ют</span></td><td>говор<span class="ending">ят</span></td><td>他们</td></tr>
+        </tbody></table></div>
+        <div class="example"><strong>例句</strong>Мы чита<span class="ending">ем</span> по-ру́сски. 我们用俄语阅读。 Они́ говор<span class="ending">ят</span> по-англи́йски. 他们说英语。</div>
+      </section>
+
+      <section class="panel" id="number">
+        <div class="note"><b>基数词：</b><i>оди́н</i>（一）有性变化；<i>два</i>（二）在不同格中变化明显。以下列出常用形式。</div>
+        <div class="table-wrap"><table><thead><tr><th>格</th><th>оди́н（阳/阴/中）</th><th>два（三性/复数语境）</th><th>三、四的常用形式</th></tr></thead><tbody>
+          <tr><td>主格</td><td>оди́н / одна́ / одно́</td><td>два / две</td><td>три, четы́ре</td></tr><tr><td>属格</td><td>одн<span class="ending">ого</span> / одн<span class="ending">ой</span></td><td>дв<span class="ending">ух</span></td><td>тр<span class="ending">ёх</span>, четыр<span class="ending">ёх</span></td></tr>
+          <tr><td>与格</td><td>одн<span class="ending">ому</span> / одн<span class="ending">ой</span></td><td>дв<span class="ending">ум</span></td><td>тр<span class="ending">ём</span>, четыр<span class="ending">ём</span></td></tr><tr><td>宾格</td><td>один / одну</td><td>два / две</td><td>три, четы́ре</td></tr>
+          <tr><td>工具格</td><td>одн<span class="ending">им</span> / одн<span class="ending">ой</span></td><td>дв<span class="ending">умя</span></td><td>тр<span class="ending">емя</span>, четыр<span class="ending">ьмя</span></td></tr><tr><td>前置格</td><td>одн<span class="ending">ом</span> / одн<span class="ending">ой</span></td><td>дв<span class="ending">ух</span></td><td>тр<span class="ending">ёх</span>, четыр<span class="ending">ёх</span></td></tr>
+        </tbody></table></div>
+        <div class="example"><strong>数量搭配</strong>один стол，два стол<span class="ending">а</span>，пять стол<span class="ending">ов</span>。1 后接单数主格，2-4 后常接单数属格，5 及以上常接复数属格。</div>
+      </section>
+
+      <section class="panel" id="possessive">
+        <div class="note"><b>物主代词：</b><i>мой</i>（我的）按形容词型变化；必须与后面的名词在性、数、格上保持一致。</div>
+        <div class="table-wrap"><table><thead><tr><th>格</th><th>阳性：мой стол</th><th>阴性：моя кни́га</th><th>中性：моё окно́</th><th>复数：мои́ слова́</th></tr></thead><tbody>
+          <tr><td>主格</td><td>мой</td><td>моя́</td><td>моё</td><td>мои́</td></tr><tr><td>属格</td><td>мо<span class="ending">его</span></td><td>мо<span class="ending">ей</span></td><td>мо<span class="ending">его</span></td><td>мо<span class="ending">их</span></td></tr>
+          <tr><td>与格</td><td>мо<span class="ending">ему</span></td><td>мо<span class="ending">ей</span></td><td>мо<span class="ending">ему</span></td><td>мо<span class="ending">им</span></td></tr><tr><td>宾格</td><td>мой / мо<span class="ending">его</span></td><td>мо<span class="ending">ю</span></td><td>моё</td><td>мои́ / мо<span class="ending">их</span></td></tr>
+          <tr><td>工具格</td><td>мо<span class="ending">им</span></td><td>мо<span class="ending">ей</span></td><td>мо<span class="ending">им</span></td><td>мо<span class="ending">ими</span></td></tr><tr><td>前置格</td><td>мо<span class="ending">ём</span></td><td>мо<span class="ending">ей</span></td><td>мо<span class="ending">ём</span></td><td>мо<span class="ending">их</span></td></tr>
+        </tbody></table></div>
+        <div class="example"><strong>其他常用物主代词</strong>твой/твоя́/твоё/твои́（你的），наш/на́ша/на́ше/на́ши（我们的），ваш/ва́ша/ва́ше/ва́ши（你们的/您的）。</div>
+      </section>
+
+      <section class="panel" id="demonstrative">
+        <div class="note"><b>指示与限定代词：</b><i>э́тот</i>（这个）和 <i>ка́ждый</i>（每个）都按形容词型变化；<i>тот</i>（那个）与 <i>весь</i>（全部）也是高频词。</div>
+        <div class="table-wrap"><table><thead><tr><th>格</th><th>э́тот（阳性）</th><th>э́та（阴性）</th><th>э́то（中性）</th><th>э́ти（复数）</th></tr></thead><tbody>
+          <tr><td>主格</td><td>э́тот</td><td>э́та</td><td>э́то</td><td>э́ти</td></tr><tr><td>属格</td><td>э́т<span class="ending">ого</span></td><td>э́т<span class="ending">ой</span></td><td>э́т<span class="ending">ого</span></td><td>э́т<span class="ending">их</span></td></tr>
+          <tr><td>与格</td><td>э́т<span class="ending">ому</span></td><td>э́т<span class="ending">ой</span></td><td>э́т<span class="ending">ому</span></td><td>э́т<span class="ending">им</span></td></tr><tr><td>宾格</td><td>э́тот / э́т<span class="ending">ого</span></td><td>э́т<span class="ending">у</span></td><td>э́то</td><td>э́ти / э́т<span class="ending">их</span></td></tr>
+          <tr><td>工具格</td><td>э́т<span class="ending">им</span></td><td>э́т<span class="ending">ой</span></td><td>э́т<span class="ending">им</span></td><td>э́т<span class="ending">ими</span></td></tr><tr><td>前置格</td><td>э́т<span class="ending">ом</span></td><td>э́т<span class="ending">ой</span></td><td>э́т<span class="ending">ом</span></td><td>э́т<span class="ending">их</span></td></tr>
+        </tbody></table></div>
+        <div class="example"><strong>搭配提示</strong>э́тот го́род（这座城市），о́коло э́того го́рода（在这座城市附近），ка́ждый день（每天），весь день（整天）。</div>
+      </section>
+      <p class="legend">提示：表格可以左右滑动；重点词尾用蓝色下划线标出。重音符号保留在例词中，便于和词汇卡的重音标记对应。</p>
+    </main>
+  </div>
+  <script>
+    const tabs = document.querySelectorAll('.tab');
+    const panels = document.querySelectorAll('.panel');
+    tabs.forEach(tab => tab.addEventListener('click', () => {
+      tabs.forEach(item => item.classList.toggle('active', item === tab));
+      panels.forEach(panel => panel.classList.toggle('active', panel.id === tab.dataset.panel));
+    }));
+  </script>
+</body>
+</html>
