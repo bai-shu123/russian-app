@@ -17,7 +17,7 @@ function authErrorMessage(error) {
 
 async function getProfile(user) {
   if (!user) return null;
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('profiles')
     .select('id, username, role, created_at')
     .eq('id', user.id)
@@ -33,7 +33,7 @@ async function ensureProfile(user) {
   const username = user.user_metadata && user.user_metadata.username
     ? user.user_metadata.username
     : (user.email || '').split('@')[0];
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('profiles')
     .upsert({ id: user.id, username, role: 'user' }, { onConflict: 'id' })
     .select('id, username, role, created_at')
@@ -115,7 +115,7 @@ async function resetPassword(password) {
 }
 
 async function listProfiles() {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('profiles')
     .select('id, username, role, created_at')
     .order('created_at', { ascending: false });
