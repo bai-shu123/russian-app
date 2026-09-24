@@ -1,223 +1,126 @@
-// =========================================================
-// 账号系统（纯前端演示版）
-// 说明：本应用没有真实后端服务器，用户数据保存在浏览器本地 localStorage 中，
-// 邮箱验证码也无法通过真实邮件发送，而是直接显示在页面上做"演示"。
-// 密码经过简单哈希处理，避免明文存储，但这不等同于真实生产环境的安全强度。
-// =========================================================
+// Supabase 云端认证：账号、会话和用户资料不再保存在单个浏览器中。
+let currentUserId = null;
+const supabase = window.supabase.createClient(
+  window.SUPABASE_CONFIG.url,
+  window.SUPABASE_CONFIG.publishableKey
+);
 
-const USERS_KEY = 'ru_app_users_v1';
-const SESSION_KEY = 'ru_app_session_v1';
-const CODE_TTL_MS = 10 * 60 * 1000; // 验证码有效期 10 分钟
-
-// ---------- 简单哈希（非真实加密，仅用于避免明文存储） ----------
-function simpleHash(str) {
-  let hash = 5381;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash) + str.charCodeAt(i);
-    hash = hash & hash;
-  }
-  return (hash >>> 0).toString(16);
+function authErrorMessage(error) {
+  const message = error && error.message ? error.message : '操作失败，请稍后重试';
+  if (/invalid login credentials/i.test(message)) return '邮箱或密码不正确';
+  if (/user already registered/i.test(message)) return '该邮箱已经注册';
+  if (/password should be at least/i.test(message)) return '密码长度至少 6 位';
+  if (/email not confirmed/i.test(message)) return '请先检查邮箱并点击确认链接';
+  return message;
 }
 
-function hashPassword(username, password) {
-  return simpleHash('ru_salt::' + username.toLowerCase() + '::' + password);
+async function getProfile(user) {
+  if (!user) return null;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, username, role, created_at')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
 }
 
-function genCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+async function ensureProfile(user) {
+  if (!user) return null;
+  let profile = await getProfile(user);
+  if (profile) return profile;
+  const username = user.user_metadata && user.user_metadata.username
+    ? user.user_metadata.username
+    : (user.email || '').split('@')[0];
+  const { data, error } = await supabase
+    .from('profiles')
+    .upsert({ id: user.id, username, role: 'user' }, { onConflict: 'id' })
+    .select('id, username, role, created_at')
+    .single();
+  if (error) throw error;
+  profile = data;
+  return profile;
 }
 
-// ---------- 用户数据存取 ----------
-function loadUsers() {
-  const raw = localStorage.getItem(USERS_KEY);
-  if (raw) {
-    try { return JSON.parse(raw); } catch (e) { /* fallthrough */ }
-  }
-  return {};
-}
-
-function saveUsers(users) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-}
-
-function ensureAdminSeed() {
-  const users = loadUsers();
-  if (!users['admin']) {
-    users['admin'] = {
-      username: 'admin',
-      email: 'admin@local',
-      passwordHash: hashPassword('admin', '123456'),
-      role: 'admin',
-      verified: true,
-      createdAt: Date.now()
-    };
-    saveUsers(users);
-  }
-}
-ensureAdminSeed();
-
-function findUserByUsernameOrEmail(input) {
-  const users = loadUsers();
-  const key = input.trim().toLowerCase();
-  if (users[key]) return users[key];
-  for (const uname in users) {
-    if (users[uname].email && users[uname].email.toLowerCase() === key) {
-      return users[uname];
-    }
-  }
-  return null;
-}
-
-// ---------- 会话 ----------
-function getSession() {
-  const raw = localStorage.getItem(SESSION_KEY);
-  if (!raw) return null;
-  try { return JSON.parse(raw); } catch (e) { return null; }
-}
-
-function setSession(username, role) {
-  localStorage.setItem(SESSION_KEY, JSON.stringify({ username, role, loginAt: Date.now() }));
-}
-
-function clearSession() {
-  localStorage.removeItem(SESSION_KEY);
-}
-
-// ---------- 注册 ----------
-function registerUser(username, email, password) {
-  username = username.trim();
-  email = email.trim();
-  if (!username || !email || !password) {
-    return { ok: false, error: '请填写完整信息' };
-  }
-  if (username.toLowerCase() === 'admin') {
-    return { ok: false, error: '该用户名不可用' };
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { ok: false, error: '邮箱格式不正确' };
-  }
-  if (password.length < 6) {
-    return { ok: false, error: '密码长度至少 6 位' };
-  }
-  const users = loadUsers();
-  const key = username.toLowerCase();
-  if (users[key]) {
-    return { ok: false, error: '用户名已被注册' };
-  }
-  for (const uname in users) {
-    if (users[uname].email && users[uname].email.toLowerCase() === email.toLowerCase()) {
-      return { ok: false, error: '该邮箱已被绑定其他账号' };
-    }
-  }
-  const code = genCode();
-  users[key] = {
-    username,
-    email,
-    passwordHash: hashPassword(username, password),
-    role: 'user',
-    verified: false,
-    pendingCode: code,
-    pendingCodeExpiry: Date.now() + CODE_TTL_MS,
-    createdAt: Date.now()
+async function getSession() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  if (!data.session) return null;
+  currentUserId = data.session.user.id;
+  window.Auth.currentUserId = currentUserId;
+  const profile = await ensureProfile(data.session.user);
+  return {
+    user: data.session.user,
+    username: profile ? profile.username : data.session.user.email,
+    role: profile ? profile.role : 'user'
   };
-  saveUsers(users);
-  return { ok: true, code };
 }
 
-function verifyRegistrationCode(username, code) {
-  const users = loadUsers();
-  const key = username.trim().toLowerCase();
-  const user = users[key];
-  if (!user) return { ok: false, error: '用户不存在' };
-  if (user.verified) return { ok: false, error: '该账号已完成验证' };
-  if (!user.pendingCode || Date.now() > user.pendingCodeExpiry) {
-    return { ok: false, error: '验证码已过期，请重新发送' };
-  }
-  if (user.pendingCode !== code.trim()) {
-    return { ok: false, error: '验证码不正确' };
-  }
-  user.verified = true;
-  delete user.pendingCode;
-  delete user.pendingCodeExpiry;
-  saveUsers(users);
+async function registerUser(username, email, password) {
+  username = username.trim();
+  email = email.trim().toLowerCase();
+  if (!username || !email || !password) return { ok: false, error: '请填写完整信息' };
+  if (password.length < 6) return { ok: false, error: '密码长度至少 6 位' };
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { username } }
+  });
+  if (error) return { ok: false, error: authErrorMessage(error) };
+  if (data.session && data.user) await ensureProfile(data.user);
+  return { ok: true, email, needsConfirmation: !data.session };
+}
+
+async function loginUser(email, password) {
+  email = email.trim().toLowerCase();
+  if (!email.includes('@')) return { ok: false, error: '云端登录请使用注册邮箱' };
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return { ok: false, error: authErrorMessage(error) };
+  currentUserId = data.user.id;
+  window.Auth.currentUserId = currentUserId;
+  const profile = await ensureProfile(data.user);
+  return { ok: true, username: profile.username, role: profile.role, user: data.user };
+}
+
+async function logoutUser() {
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+}
+
+async function requestPasswordReset(email) {
+  email = email.trim().toLowerCase();
+  if (!email.includes('@')) return { ok: false, error: '请输入注册邮箱' };
+  const redirectTo = window.location.origin + window.location.pathname;
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) return { ok: false, error: authErrorMessage(error) };
+  return { ok: true, email };
+}
+
+async function resetPassword(password) {
+  if (password.length < 6) return { ok: false, error: '密码长度至少 6 位' };
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { ok: false, error: authErrorMessage(error) };
   return { ok: true };
 }
 
-function resendRegistrationCode(username) {
-  const users = loadUsers();
-  const key = username.trim().toLowerCase();
-  const user = users[key];
-  if (!user) return { ok: false, error: '用户不存在' };
-  if (user.verified) return { ok: false, error: '该账号已完成验证' };
-  const code = genCode();
-  user.pendingCode = code;
-  user.pendingCodeExpiry = Date.now() + CODE_TTL_MS;
-  saveUsers(users);
-  return { ok: true, code };
-}
-
-// ---------- 登录 ----------
-function loginUser(usernameOrEmail, password) {
-  const user = findUserByUsernameOrEmail(usernameOrEmail);
-  if (!user) return { ok: false, error: '账号不存在' };
-  if (user.passwordHash !== hashPassword(user.username, password)) {
-    return { ok: false, error: '密码不正确' };
-  }
-  if (!user.verified) {
-    return { ok: false, error: 'NEED_VERIFY', username: user.username };
-  }
-  setSession(user.username, user.role);
-  return { ok: true, username: user.username, role: user.role };
-}
-
-function logoutUser() {
-  clearSession();
-}
-
-// ---------- 找回密码 ----------
-function requestPasswordReset(usernameOrEmail) {
-  const user = findUserByUsernameOrEmail(usernameOrEmail);
-  if (!user) return { ok: false, error: '未找到对应账号或邮箱' };
-  const users = loadUsers();
-  const key = user.username.toLowerCase();
-  const code = genCode();
-  users[key].pendingCode = code;
-  users[key].pendingCodeExpiry = Date.now() + CODE_TTL_MS;
-  users[key].pendingType = 'reset';
-  saveUsers(users);
-  return { ok: true, code, username: user.username, email: user.email };
-}
-
-function resetPassword(username, code, newPassword) {
-  if (newPassword.length < 6) {
-    return { ok: false, error: '密码长度至少 6 位' };
-  }
-  const users = loadUsers();
-  const key = username.trim().toLowerCase();
-  const user = users[key];
-  if (!user) return { ok: false, error: '用户不存在' };
-  if (!user.pendingCode || Date.now() > user.pendingCodeExpiry) {
-    return { ok: false, error: '验证码已过期，请重新获取' };
-  }
-  if (user.pendingCode !== code.trim()) {
-    return { ok: false, error: '验证码不正确' };
-  }
-  user.passwordHash = hashPassword(user.username, newPassword);
-  delete user.pendingCode;
-  delete user.pendingCodeExpiry;
-  delete user.pendingType;
-  saveUsers(users);
-  return { ok: true };
+async function listProfiles() {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, username, role, created_at')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
 }
 
 window.Auth = {
+  supabase,
+  currentUserId,
   getSession,
+  ensureProfile,
   registerUser,
-  verifyRegistrationCode,
-  resendRegistrationCode,
   loginUser,
   logoutUser,
   requestPasswordReset,
   resetPassword,
-  findUserByUsernameOrEmail
+  listProfiles
 };

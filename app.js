@@ -80,99 +80,65 @@ document.getElementById('backToLoginFromReset').addEventListener('click', (e) =>
 });
 
 // ---- 登录 ----
-document.getElementById('loginSubmitBtn').addEventListener('click', () => {
-  const usernameOrEmail = document.getElementById('loginUsername').value;
+document.getElementById('loginSubmitBtn').addEventListener('click', async () => {
+  const email = document.getElementById('loginUsername').value;
   const password = document.getElementById('loginPassword').value;
-  const result = window.Auth.loginUser(usernameOrEmail, password);
+  const result = await window.Auth.loginUser(email, password);
   if (result.ok) {
-    enterApp(result.username, result.role);
-  } else if (result.error === 'NEED_VERIFY') {
-    pendingRegisterUsername = result.username;
-    const resend = window.Auth.resendRegistrationCode(result.username);
-    showVerifyStep(result.username, resend.code);
+    await enterApp(result.username, result.role);
   } else {
     document.getElementById('loginError').textContent = result.error;
   }
 });
 
 // ---- 注册 ----
-document.getElementById('registerSubmitBtn').addEventListener('click', () => {
+document.getElementById('registerSubmitBtn').addEventListener('click', async () => {
   const username = document.getElementById('registerUsername').value;
   const email = document.getElementById('registerEmail').value;
   const password = document.getElementById('registerPassword').value;
   const password2 = document.getElementById('registerPassword2').value;
   const errEl = document.getElementById('registerError');
-
   if (password !== password2) {
     errEl.textContent = '两次输入的密码不一致';
     return;
   }
-  const result = window.Auth.registerUser(username, email, password);
+  const result = await window.Auth.registerUser(username, email, password);
   if (!result.ok) {
     errEl.textContent = result.error;
     return;
   }
-  pendingRegisterUsername = username.trim();
-  showVerifyStep(username.trim(), result.code, email.trim());
+  showAuthForm('verifyForm');
+  document.getElementById('verifyEmailTarget').textContent = result.email;
+  document.getElementById('demoCodeBox').textContent = '注册成功，请打开邮箱并点击 Supabase 发来的确认链接。';
 });
 
-function showVerifyStep(username, code, email) {
-  showAuthForm('verifyForm');
-  const user = window.Auth.findUserByUsernameOrEmail(username);
-  document.getElementById('verifyEmailTarget').textContent = email || (user && user.email) || '';
-  document.getElementById('demoCodeBox').innerHTML =
-    '📩 演示模式：真实验证码已"发送"至邮箱，此处为方便测试直接显示：<strong>' + code + '</strong>';
-  document.getElementById('verifyCodeInput').value = '';
-}
-
 document.getElementById('verifySubmitBtn').addEventListener('click', () => {
-  const code = document.getElementById('verifyCodeInput').value;
-  const result = window.Auth.verifyRegistrationCode(pendingRegisterUsername, code);
-  const errEl = document.getElementById('verifyError');
-  if (!result.ok) {
-    errEl.textContent = result.error;
-    return;
-  }
-  const loginResult = window.Auth.loginUser(pendingRegisterUsername, document.getElementById('registerPassword').value || '');
-  if (loginResult.ok) {
-    enterApp(loginResult.username, loginResult.role);
-  } else {
-    showAuthForm('loginForm');
-    document.getElementById('loginError').textContent = '验证成功，请重新登录';
-  }
+  showAuthForm('loginForm');
+  document.getElementById('loginError').textContent = '请先完成邮箱确认，然后使用注册邮箱登录';
 });
 
 document.getElementById('resendCodeLink').addEventListener('click', (e) => {
   e.preventDefault();
-  const result = window.Auth.resendRegistrationCode(pendingRegisterUsername);
-  if (result.ok) {
-    document.getElementById('demoCodeBox').innerHTML =
-      '📩 新验证码已"发送"：<strong>' + result.code + '</strong>';
-  } else {
-    document.getElementById('verifyError').textContent = result.error;
-  }
+  document.getElementById('verifyError').textContent = '确认邮件由 Supabase 发送，请检查收件箱和垃圾邮件文件夹';
 });
 
 // ---- 忘记密码 ----
-document.getElementById('forgotSubmitBtn').addEventListener('click', () => {
-  const input = document.getElementById('forgotInput').value;
-  const result = window.Auth.requestPasswordReset(input);
+document.getElementById('forgotSubmitBtn').addEventListener('click', async () => {
+  const email = document.getElementById('forgotInput').value;
+  const result = await window.Auth.requestPasswordReset(email);
   const errEl = document.getElementById('forgotError');
   if (!result.ok) {
     errEl.textContent = result.error;
     return;
   }
-  pendingResetUsername = result.username;
   showAuthForm('resetForm');
   document.getElementById('resetEmailTarget').textContent = result.email;
-  document.getElementById('resetDemoCodeBox').innerHTML =
-    '📩 演示模式：真实验证码已"发送"至邮箱，此处为方便测试直接显示：<strong>' + result.code + '</strong>';
+  document.getElementById('resetDemoCodeBox').textContent = '重置邮件已发送，请点击邮件中的链接后返回此页面设置新密码。';
 });
 
-document.getElementById('resetSubmitBtn').addEventListener('click', () => {
-  const code = document.getElementById('resetCodeInput').value;
-  const newPassword = document.getElementById('resetNewPassword').value;
-  const result = window.Auth.resetPassword(pendingResetUsername, code, newPassword);
+document.getElementById('resetSubmitBtn').addEventListener('click', async () => {
+  const password = document.getElementById('resetNewPassword').value;
+  const result = await window.Auth.resetPassword(password);
   const errEl = document.getElementById('resetError');
   if (!result.ok) {
     errEl.textContent = result.error;
@@ -181,10 +147,9 @@ document.getElementById('resetSubmitBtn').addEventListener('click', () => {
   showAuthForm('loginForm');
   document.getElementById('loginError').textContent = '密码重置成功，请使用新密码登录';
 });
-
 // ---- 登出 ----
-document.getElementById('logoutBtn').addEventListener('click', () => {
-  window.Auth.logoutUser();
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await window.Auth.logoutUser();
   document.getElementById('mainApp').classList.add('hidden');
   document.getElementById('authOverlay').classList.remove('hidden');
   showAuthForm('loginForm');
@@ -252,24 +217,70 @@ function markWordLearned(ru) {
 
 // ---------- 留言反馈 ----------
 const FEEDBACK_KEY = 'ru_learning_feedback_v1';
-function loadFeedback() { const raw = localStorage.getItem(FEEDBACK_KEY); if (raw) { try { const data = JSON.parse(raw); if (Array.isArray(data)) return data; } catch (e) {} } return []; }
-function saveFeedback(items) { localStorage.setItem(FEEDBACK_KEY, JSON.stringify(items)); }
 function escapeFeedbackHtml(value) { return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;'); }
 function formatFeedbackTime(timestamp) { return new Date(timestamp).toLocaleString('zh-CN', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+async function loadFeedback() {
+  const { data, error } = await window.Auth.supabase.from('feedback').select('*').order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
 function renderFeedbackCard(item, isAdminView) {
   const replied = Boolean(item.reply);
-  const replyHtml = replied ? '<div class="feedback-reply"><strong>管理员回复</strong><p>' + escapeFeedbackHtml(item.reply) + '</p><time>' + formatFeedbackTime(item.repliedAt) + '</time></div>' : '<div class="feedback-waiting">我们会认真阅读你的留言。</div>';
+  const replyHtml = replied ? '<div class="feedback-reply"><strong>管理员回复</strong><p>' + escapeFeedbackHtml(item.reply) + '</p><time>' + formatFeedbackTime(item.replied_at) + '</time></div>' : '<div class="feedback-waiting">我们会认真阅读你的留言。</div>';
   const adminReplyHtml = isAdminView && !replied ? '<div class="admin-reply-box"><textarea class="admin-reply-input" data-feedback-id="' + item.id + '" rows="3" maxlength="500" placeholder="写下给用户的回复"></textarea><button class="reply-btn" data-feedback-id="' + item.id + '">发送回复</button></div>' : '';
-  return '<article class="feedback-item"><div class="feedback-item-top"><div><span class="feedback-type">' + escapeFeedbackHtml(item.type) + '</span><h4>' + escapeFeedbackHtml(item.title) + '</h4></div><span class="feedback-badge ' + (replied ? 'replied' : 'pending') + '">' + (replied ? '已回复' : '待回复') + '</span></div><p class="feedback-content">' + escapeFeedbackHtml(item.content) + '</p><div class="feedback-meta"><span>' + (isAdminView ? '来自 ' + escapeFeedbackHtml(item.username) : '提交于') + '</span><time>' + formatFeedbackTime(item.createdAt) + '</time></div>' + replyHtml + adminReplyHtml + '</article>';
+  return '<article class="feedback-item"><div class="feedback-item-top"><div><span class="feedback-type">' + escapeFeedbackHtml(item.feedback_type) + '</span><h4>' + escapeFeedbackHtml(item.title) + '</h4></div><span class="feedback-badge ' + (replied ? 'replied' : 'pending') + '">' + (replied ? '已回复' : '待回复') + '</span></div><p class="feedback-content">' + escapeFeedbackHtml(item.content) + '</p><div class="feedback-meta"><span>' + (isAdminView ? '来自 ' + escapeFeedbackHtml(item.username) : '提交于') + '</span><time>' + formatFeedbackTime(item.created_at) + '</time></div>' + replyHtml + adminReplyHtml + '</article>';
 }
-function renderFeedback() {
-  const all = loadFeedback(); const mine = all.filter(item => item.username === currentUsername); const myList = document.getElementById('myFeedbackList'); const allList = document.getElementById('allFeedbackList'); const adminPanel = document.getElementById('adminFeedbackPanel'); if (!myList) return;
-  const pendingCount = all.filter(item => !item.reply).length; document.getElementById('feedbackCount').textContent = mine.length + ' 条'; document.getElementById('feedbackStatus').textContent = mine.length ? '已留言 ' + mine.length + ' 条' : '欢迎反馈'; document.getElementById('adminFeedbackCount').textContent = pendingCount + ' 条待处理';
-  myList.innerHTML = mine.length ? mine.slice().reverse().map(item => renderFeedbackCard(item, false)).join('') : '<div class="feedback-empty"><strong>还没有留言</strong><span>你的第一条反馈会出现在这里。</span></div>';
-  if (currentRole === 'admin') { adminPanel.classList.remove('hidden'); allList.innerHTML = all.length ? all.slice().reverse().map(item => renderFeedbackCard(item, true)).join('') : '<div class="feedback-empty"><strong>暂时没有用户留言</strong><span>新的留言会显示在这里。</span></div>'; allList.querySelectorAll('.reply-btn').forEach(btn => btn.addEventListener('click', () => { const input = allList.querySelector('.admin-reply-input[data-feedback-id="' + btn.dataset.feedbackId + '"]'); const reply = input.value.trim(); if (!reply) { input.focus(); return; } const updated = loadFeedback(); const target = updated.find(item => item.id === btn.dataset.feedbackId); if (!target) return; target.reply = reply; target.repliedAt = Date.now(); saveFeedback(updated); renderFeedback(); })); } else { adminPanel.classList.add('hidden'); }
+async function renderFeedback() {
+  const myList = document.getElementById('myFeedbackList');
+  if (!myList || !currentUsername) return;
+  try {
+    const all = await loadFeedback();
+    const mine = all.filter(item => item.user_id === window.Auth.currentUserId || item.username === currentUsername);
+    const adminPanel = document.getElementById('adminFeedbackPanel');
+    const allList = document.getElementById('allFeedbackList');
+    const pendingCount = all.filter(item => !item.reply).length;
+    document.getElementById('feedbackCount').textContent = mine.length + ' 条';
+    document.getElementById('feedbackStatus').textContent = mine.length ? '已留言 ' + mine.length + ' 条' : '欢迎反馈';
+    document.getElementById('adminFeedbackCount').textContent = pendingCount + ' 条待处理';
+    myList.innerHTML = mine.length ? mine.map(item => renderFeedbackCard(item, false)).join('') : '<div class="feedback-empty"><strong>还没有留言</strong><span>你的第一条反馈会出现在这里。</span></div>';
+    if (currentRole === 'admin') {
+      adminPanel.classList.remove('hidden');
+      allList.innerHTML = all.length ? all.map(item => renderFeedbackCard(item, true)).join('') : '<div class="feedback-empty"><strong>暂时没有用户留言</strong><span>新的留言会显示在这里。</span></div>';
+      allList.querySelectorAll('.reply-btn').forEach(btn => btn.addEventListener('click', async () => {
+        const input = allList.querySelector('.admin-reply-input[data-feedback-id="' + btn.dataset.feedbackId + '"]');
+        const reply = input.value.trim();
+        if (!reply) { input.focus(); return; }
+        const { error } = await window.Auth.supabase.from('feedback').update({ reply, replied_at: new Date().toISOString() }).eq('id', btn.dataset.feedbackId);
+        if (error) { input.value = error.message; return; }
+        await renderFeedback();
+      }));
+    } else {
+      adminPanel.classList.add('hidden');
+    }
+  } catch (error) {
+    myList.innerHTML = '<div class="feedback-empty"><strong>反馈服务暂时不可用</strong><span>' + escapeFeedbackHtml(error.message) + '</span></div>';
+  }
 }
-function initFeedback() { const form = document.getElementById('feedbackForm'); const content = document.getElementById('feedbackContent'); const counter = document.getElementById('feedbackContentCount'); content.addEventListener('input', () => { counter.textContent = content.value.length; }); form.addEventListener('submit', event => { event.preventDefault(); const title = document.getElementById('feedbackTitle').value.trim(); const text = content.value.trim(); if (!title || !text || !currentUsername) return; const items = loadFeedback(); items.push({ id: 'feedback_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8), username: currentUsername, type: document.getElementById('feedbackType').value, title, content: text, createdAt: Date.now(), reply: '', repliedAt: null }); saveFeedback(items); form.reset(); counter.textContent = '0'; document.getElementById('feedbackFormMessage').textContent = '留言已发送，感谢你的反馈！'; renderFeedback(); window.setTimeout(() => { document.getElementById('feedbackFormMessage').textContent = ''; }, 3000); }); }
-
+function initFeedback() {
+  const form = document.getElementById('feedbackForm');
+  const content = document.getElementById('feedbackContent');
+  const counter = document.getElementById('feedbackContentCount');
+  content.addEventListener('input', () => { counter.textContent = content.value.length; });
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const title = document.getElementById('feedbackTitle').value.trim();
+    const text = content.value.trim();
+    if (!title || !text || !window.Auth.currentUserId) return;
+    const { error } = await window.Auth.supabase.from('feedback').insert({ user_id: window.Auth.currentUserId, username: currentUsername, feedback_type: document.getElementById('feedbackType').value, title, content: text });
+    const message = document.getElementById('feedbackFormMessage');
+    if (error) { message.textContent = error.message; return; }
+    form.reset();
+    counter.textContent = '0';
+    message.textContent = '留言已发送，感谢你的反馈！';
+    await renderFeedback();
+    window.setTimeout(() => { message.textContent = ''; }, 3000);
+  });
+}
 // ---------- 标签切换 ----------
 const tabBtns = document.querySelectorAll('.tab-btn');
 const panels = document.querySelectorAll('.tab-panel');
@@ -654,37 +665,26 @@ document.getElementById('resetProgressBtn').addEventListener('click', () => {
 });
 
 // ---------- 管理员面板 ----------
-function renderAdminPanel() {
+async function renderAdminPanel() {
   const listEl = document.getElementById('adminUserList');
-  const raw = localStorage.getItem('ru_app_users_v1');
-  const users = raw ? JSON.parse(raw) : {};
-  listEl.innerHTML = '';
-  const usernames = Object.keys(users);
-  if (usernames.length === 0) {
-    listEl.innerHTML = '<p class="section-desc">暂无注册用户</p>';
-    return;
+  listEl.innerHTML = '<p class="section-desc">正在加载用户...</p>';
+  try {
+    const users = await window.Auth.listProfiles();
+    if (!users.length) { listEl.innerHTML = '<p class="section-desc">暂无注册用户</p>'; return; }
+    listEl.innerHTML = users.map(u => {
+      const createdDate = new Date(u.created_at).toLocaleString('zh-CN');
+      return '<div class="admin-user-card">' +
+        '<div class="row"><span class="label">用户名</span><span>' + escapeFeedbackHtml(u.username) + (u.role === 'admin' ? '<span class="admin-badge role-admin">管理员</span>' : '') + '</span></div>' +
+        '<div class="row"><span class="label">账号 ID</span><span>' + escapeFeedbackHtml(u.id.slice(0, 8)) + '...</span></div>' +
+        '<div class="row"><span class="label">状态</span><span><span class="admin-badge verified">已注册</span></span></div>' +
+        '<div class="row"><span class="label">注册时间</span><span>' + createdDate + '</span></div></div>';
+    }).join('');
+  } catch (error) {
+    listEl.innerHTML = '<p class="section-desc">用户列表加载失败：' + escapeFeedbackHtml(error.message) + '</p>';
   }
-  usernames.forEach(uname => {
-    const u = users[uname];
-    const card = document.createElement('div');
-    card.className = 'admin-user-card';
-    const createdDate = new Date(u.createdAt).toLocaleString();
-    card.innerHTML =
-      '<div class="row"><span class="label">用户名</span><span>' + u.username +
-        (u.role === 'admin' ? '<span class="admin-badge role-admin">管理员</span>' : '') + '</span></div>' +
-      '<div class="row"><span class="label">邮箱</span><span>' + (u.email || '未绑定') + '</span></div>' +
-      '<div class="row"><span class="label">状态</span><span>' +
-        (u.verified
-          ? '<span class="admin-badge verified">已验证</span>'
-          : '<span class="admin-badge unverified">待验证</span>') +
-      '</span></div>' +
-      '<div class="row"><span class="label">注册时间</span><span>' + createdDate + '</span></div>';
-    listEl.appendChild(card);
-  });
 }
-
 // ---------- 进入应用 ----------
-function enterApp(username, role) {
+async function enterApp(username, role) {
   currentUsername = username;
   currentRole = role;
   document.getElementById('authOverlay').classList.add('hidden');
@@ -695,7 +695,7 @@ function enterApp(username, role) {
   progress = updateStreak(loadProgress(username));
   renderCourseList();
   renderCourseDetail();
-  renderFeedback();
+  await renderFeedback();
   renderAlphabet();
   initVocabUnitSelector();
   refreshVocabWords();
@@ -704,17 +704,19 @@ function enterApp(username, role) {
 }
 
 // ---------- 初始化 ----------
-function init() {
+async function init() {
   initFeedback();
   if ('speechSynthesis' in window) {
     window.speechSynthesis.onvoiceschanged = () => {};
   }
-  const session = window.Auth.getSession();
+  const session = await window.Auth.getSession();
   if (session && session.username) {
-    enterApp(session.username, session.role);
+    await enterApp(session.username, session.role);
   } else {
     showAuthForm('loginForm');
   }
 }
 
-init();
+init().catch(error => {
+  document.getElementById('loginError').textContent = error.message;
+});
