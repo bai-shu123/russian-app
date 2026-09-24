@@ -526,15 +526,46 @@ function refreshVocabWords() {
 function renderFlashcard() {
   if (currentVocabWords.length === 0) return;
   const word = currentVocabWords[currentCardIndex];
+  const flashcard = document.getElementById('flashcard');
+  const handwriting = document.getElementById('cardHandwriting');
   document.getElementById('cardRu').textContent = word.displayRu || addStressMarks(word.ru);
+  handwriting.textContent = word.displayRu || addStressMarks(word.ru);
+  handwriting.setAttribute('aria-label', '手写体：' + (word.displayRu || addStressMarks(word.ru)));
   document.getElementById('cardZh').textContent = word.zh;
   document.getElementById('cardCounter').textContent = (currentCardIndex + 1) + ' / ' + currentVocabWords.length;
-  document.getElementById('flashcard').classList.remove('flipped');
+  flashcard.classList.remove('flipped', 'showing-handwriting');
+  flashcard.dataset.state = 'front';
+  document.getElementById('flashcardHint').textContent = '点击一次查看中文，再点击一次查看俄语手写体';
   markWordLearned(word.ru);
 }
 
-document.getElementById('flashcard').addEventListener('click', function () {
-  this.classList.toggle('flipped');
+function advanceFlashcardState() {
+  const flashcard = document.getElementById('flashcard');
+  const hint = document.getElementById('flashcardHint');
+  const state = flashcard.dataset.state || 'front';
+  if (state === 'front') {
+    flashcard.classList.add('flipped');
+    flashcard.classList.remove('showing-handwriting');
+    flashcard.dataset.state = 'meaning';
+    hint.textContent = '再点击一次查看俄语手写体';
+  } else if (state === 'meaning') {
+    flashcard.classList.remove('flipped');
+    flashcard.classList.add('showing-handwriting');
+    flashcard.dataset.state = 'handwriting';
+    hint.textContent = '再点击一次回到俄语单词';
+  } else {
+    flashcard.classList.remove('flipped', 'showing-handwriting');
+    flashcard.dataset.state = 'front';
+    hint.textContent = '点击一次查看中文，再点击一次查看俄语手写体';
+  }
+}
+
+document.getElementById('flashcard').addEventListener('click', advanceFlashcardState);
+document.getElementById('flashcard').addEventListener('keydown', event => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    advanceFlashcardState();
+  }
 });
 
 document.getElementById('prevCardBtn').addEventListener('click', () => {

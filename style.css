@@ -215,6 +215,33 @@ main {
   color: white;
 }
 
+.flashcard-front #cardHandwriting {
+  display: none;
+}
+
+.flashcard.showing-handwriting .flashcard-inner {
+  transform: rotateY(0deg);
+}
+
+.flashcard.showing-handwriting .flashcard-front {
+  background: #fff8e9;
+  color: #27344d;
+}
+
+.flashcard.showing-handwriting .flashcard-front #cardRu {
+  display: none;
+}
+
+.flashcard.showing-handwriting .flashcard-front #cardHandwriting {
+  display: block;
+  color: #263b63;
+  font-family: "Segoe Script", "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+  font-size: 2.25rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  transform: rotate(-3deg);
+}
+
 .flashcard-back {
   background: linear-gradient(135deg, var(--primary), #ff6b5b);
   color: white;

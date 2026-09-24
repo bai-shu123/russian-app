@@ -138,10 +138,11 @@
         </div>
         <div id="vocabCardArea">
           <div class="flashcard-wrap">
-            <div class="flashcard" id="flashcard">
+            <div class="flashcard" id="flashcard" role="button" tabindex="0" aria-label="词汇卡片，点击查看中文释义和俄语手写体">
               <div class="flashcard-inner">
                 <div class="flashcard-front">
                   <span id="cardRu">Привет</span>
+                  <span id="cardHandwriting" class="card-handwriting" aria-hidden="true">Привет</span>
                 </div>
                 <div class="flashcard-back">
                   <span id="cardZh">你好</span>
@@ -154,7 +155,7 @@
             <span id="cardCounter">1 / 9</span>
             <button id="nextCardBtn">下一个 ➡</button>
           </div>
-          <p class="hint">点击卡片翻转查看释义</p>
+          <p class="hint" id="flashcardHint">点击一次查看中文，再点击一次查看俄语手写体</p>
         </div>
       </section>
 
