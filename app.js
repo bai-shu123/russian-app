@@ -42,6 +42,10 @@ const stressMarks = {
 function addStressMarks(text) {
   return stressMarks[text] || text;
 }
+
+function removeStressMarks(text) {
+  return String(text).replace(/\u0301/g, '');
+}
 // 登录 / 注册 / 邮箱验证 / 找回密码 逻辑
 // ===================================================================
 let pendingRegisterUsername = null;
@@ -528,9 +532,11 @@ function renderFlashcard() {
   const word = currentVocabWords[currentCardIndex];
   const flashcard = document.getElementById('flashcard');
   const handwriting = document.getElementById('cardHandwriting');
-  document.getElementById('cardRu').textContent = word.displayRu || addStressMarks(word.ru);
-  handwriting.textContent = word.displayRu || addStressMarks(word.ru);
-  handwriting.setAttribute('aria-label', '手写体：' + (word.displayRu || addStressMarks(word.ru)));
+  const displayWord = word.displayRu || addStressMarks(word.ru);
+  const handwritingWord = removeStressMarks(displayWord);
+  document.getElementById('cardRu').textContent = displayWord;
+  handwriting.textContent = handwritingWord;
+  handwriting.setAttribute('aria-label', '标准俄语手写体：' + handwritingWord);
   document.getElementById('cardZh').textContent = word.zh;
   document.getElementById('cardCounter').textContent = (currentCardIndex + 1) + ' / ' + currentVocabWords.length;
   flashcard.classList.remove('flipped', 'showing-handwriting');
