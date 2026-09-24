@@ -1,6 +1,6 @@
 // Supabase 云端认证：账号、会话和用户资料不再保存在单个浏览器中。
 let currentUserId = null;
-const supabase = window.supabase.createClient(
+const supabaseClient = window.supabase.createClient(
   window.SUPABASE_CONFIG.url,
   window.SUPABASE_CONFIG.publishableKey
 );
@@ -43,7 +43,7 @@ async function ensureProfile(user) {
 }
 
 async function getSession() {
-  const { data, error } = await supabase.auth.getSession();
+  const { data, error } = await supabaseClient.auth.getSession();
   if (error) throw error;
   if (!data.session) return null;
   currentUserId = data.session.user.id;
@@ -61,7 +61,7 @@ async function registerUser(username, email, password) {
   email = email.trim().toLowerCase();
   if (!username || !email || !password) return { ok: false, error: '请填写完整信息' };
   if (password.length < 6) return { ok: false, error: '密码长度至少 6 位' };
-  const { data, error } = await supabase.auth.signUp({
+  const { data, error } = await supabaseClient.auth.signUp({
     email,
     password,
     options: { data: { username } }
@@ -74,7 +74,7 @@ async function registerUser(username, email, password) {
 async function loginUser(email, password) {
   email = email.trim().toLowerCase();
   if (!email.includes('@')) return { ok: false, error: '云端登录请使用注册邮箱' };
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
   if (error) return { ok: false, error: authErrorMessage(error) };
   currentUserId = data.user.id;
   window.Auth.currentUserId = currentUserId;
@@ -83,7 +83,7 @@ async function loginUser(email, password) {
 }
 
 async function logoutUser() {
-  const { error } = await supabase.auth.signOut();
+  const { error } = await supabaseClient.auth.signOut();
   if (error) throw error;
 }
 
@@ -91,14 +91,14 @@ async function requestPasswordReset(email) {
   email = email.trim().toLowerCase();
   if (!email.includes('@')) return { ok: false, error: '请输入注册邮箱' };
   const redirectTo = window.location.origin + window.location.pathname;
-  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo });
   if (error) return { ok: false, error: authErrorMessage(error) };
   return { ok: true, email };
 }
 
 async function resetPassword(password) {
   if (password.length < 6) return { ok: false, error: '密码长度至少 6 位' };
-  const { error } = await supabase.auth.updateUser({ password });
+  const { error } = await supabaseClient.auth.updateUser({ password });
   if (error) return { ok: false, error: authErrorMessage(error) };
   return { ok: true };
 }
@@ -113,7 +113,7 @@ async function listProfiles() {
 }
 
 window.Auth = {
-  supabase,
+  supabase: supabaseClient,
   currentUserId,
   getSession,
   ensureProfile,

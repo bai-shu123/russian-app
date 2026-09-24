@@ -81,35 +81,46 @@ document.getElementById('backToLoginFromReset').addEventListener('click', (e) =>
 
 // ---- 登录 ----
 document.getElementById('loginSubmitBtn').addEventListener('click', async () => {
-  const email = document.getElementById('loginUsername').value;
-  const password = document.getElementById('loginPassword').value;
-  const result = await window.Auth.loginUser(email, password);
-  if (result.ok) {
+  const errorEl = document.getElementById('loginError');
+  errorEl.textContent = '';
+  try {
+    const email = document.getElementById('loginUsername').value;
+    const password = document.getElementById('loginPassword').value;
+    const result = await window.Auth.loginUser(email, password);
+    if (!result.ok) {
+      errorEl.textContent = result.error;
+      return;
+    }
     await enterApp(result.username, result.role);
-  } else {
-    document.getElementById('loginError').textContent = result.error;
+  } catch (error) {
+    errorEl.textContent = error.message || '登录失败，请稍后重试';
   }
 });
 
 // ---- 注册 ----
 document.getElementById('registerSubmitBtn').addEventListener('click', async () => {
-  const username = document.getElementById('registerUsername').value;
-  const email = document.getElementById('registerEmail').value;
-  const password = document.getElementById('registerPassword').value;
-  const password2 = document.getElementById('registerPassword2').value;
   const errEl = document.getElementById('registerError');
-  if (password !== password2) {
-    errEl.textContent = '两次输入的密码不一致';
-    return;
+  errEl.textContent = '';
+  try {
+    const username = document.getElementById('registerUsername').value;
+    const email = document.getElementById('registerEmail').value;
+    const password = document.getElementById('registerPassword').value;
+    const password2 = document.getElementById('registerPassword2').value;
+    if (password !== password2) {
+      errEl.textContent = '两次输入的密码不一致';
+      return;
+    }
+    const result = await window.Auth.registerUser(username, email, password);
+    if (!result.ok) {
+      errEl.textContent = result.error;
+      return;
+    }
+    showAuthForm('verifyForm');
+    document.getElementById('verifyEmailTarget').textContent = result.email;
+    document.getElementById('demoCodeBox').textContent = '注册成功，请打开邮箱并点击 Supabase 发来的确认链接。';
+  } catch (error) {
+    errEl.textContent = error.message || '注册失败，请稍后重试';
   }
-  const result = await window.Auth.registerUser(username, email, password);
-  if (!result.ok) {
-    errEl.textContent = result.error;
-    return;
-  }
-  showAuthForm('verifyForm');
-  document.getElementById('verifyEmailTarget').textContent = result.email;
-  document.getElementById('demoCodeBox').textContent = '注册成功，请打开邮箱并点击 Supabase 发来的确认链接。';
 });
 
 document.getElementById('verifySubmitBtn').addEventListener('click', () => {
@@ -124,28 +135,36 @@ document.getElementById('resendCodeLink').addEventListener('click', (e) => {
 
 // ---- 忘记密码 ----
 document.getElementById('forgotSubmitBtn').addEventListener('click', async () => {
-  const email = document.getElementById('forgotInput').value;
-  const result = await window.Auth.requestPasswordReset(email);
   const errEl = document.getElementById('forgotError');
-  if (!result.ok) {
-    errEl.textContent = result.error;
-    return;
+  errEl.textContent = '';
+  try {
+    const result = await window.Auth.requestPasswordReset(document.getElementById('forgotInput').value);
+    if (!result.ok) {
+      errEl.textContent = result.error;
+      return;
+    }
+    showAuthForm('resetForm');
+    document.getElementById('resetEmailTarget').textContent = result.email;
+    document.getElementById('resetDemoCodeBox').textContent = '重置邮件已发送，请点击邮件中的链接后返回此页面设置新密码。';
+  } catch (error) {
+    errEl.textContent = error.message || '发送失败，请稍后重试';
   }
-  showAuthForm('resetForm');
-  document.getElementById('resetEmailTarget').textContent = result.email;
-  document.getElementById('resetDemoCodeBox').textContent = '重置邮件已发送，请点击邮件中的链接后返回此页面设置新密码。';
 });
 
 document.getElementById('resetSubmitBtn').addEventListener('click', async () => {
-  const password = document.getElementById('resetNewPassword').value;
-  const result = await window.Auth.resetPassword(password);
   const errEl = document.getElementById('resetError');
-  if (!result.ok) {
-    errEl.textContent = result.error;
-    return;
+  errEl.textContent = '';
+  try {
+    const result = await window.Auth.resetPassword(document.getElementById('resetNewPassword').value);
+    if (!result.ok) {
+      errEl.textContent = result.error;
+      return;
+    }
+    showAuthForm('loginForm');
+    document.getElementById('loginError').textContent = '密码重置成功，请使用新密码登录';
+  } catch (error) {
+    errEl.textContent = error.message || '重置失败，请稍后重试';
   }
-  showAuthForm('loginForm');
-  document.getElementById('loginError').textContent = '密码重置成功，请使用新密码登录';
 });
 // ---- 登出 ----
 document.getElementById('logoutBtn').addEventListener('click', async () => {
