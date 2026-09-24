@@ -117,7 +117,7 @@ document.getElementById('registerSubmitBtn').addEventListener('click', async () 
     }
     showAuthForm('verifyForm');
     document.getElementById('verifyEmailTarget').textContent = result.email;
-    document.getElementById('demoCodeBox').textContent = '注册成功，请打开邮箱并点击 Supabase 发来的确认链接。';
+    document.getElementById('demoCodeBox').textContent = '注册成功，请打开最新确认邮件并点击其中的链接。这里不需要输入验证码。';
   } catch (error) {
     errEl.textContent = error.message || '注册失败，请稍后重试';
   }
@@ -125,7 +125,7 @@ document.getElementById('registerSubmitBtn').addEventListener('click', async () 
 
 document.getElementById('verifySubmitBtn').addEventListener('click', () => {
   showAuthForm('loginForm');
-  document.getElementById('loginError').textContent = '请先完成邮箱确认，然后使用注册邮箱登录';
+  document.getElementById('loginError').textContent = '确认邮件链接打开成功后，请使用注册邮箱和密码登录';
 });
 
 document.getElementById('resendCodeLink').addEventListener('click', async (e) => {
@@ -135,8 +135,9 @@ document.getElementById('resendCodeLink').addEventListener('click', async (e) =>
   try {
     const email = document.getElementById('verifyEmailTarget').textContent.trim();
     const result = await window.Auth.resendConfirmation(email);
+    errorEl.className = result.ok ? 'auth-success' : 'auth-error';
     errorEl.textContent = result.ok
-      ? '确认邮件已重新发送，请检查收件箱和垃圾邮件文件夹'
+      ? '新的确认邮件已发送，请只使用最新邮件中的链接。若收不到，请检查垃圾邮件。'
       : result.error;
   } catch (error) {
     errorEl.textContent = error.message || '邮件发送失败，请稍后重试';

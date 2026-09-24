@@ -43,13 +43,12 @@
       <!-- 邮箱验证码 -->
       <div id="verifyForm" class="auth-form hidden">
         <h2>邮箱验证</h2>
-        <p class="auth-desc">验证码已发送至 <span id="verifyEmailTarget"></span>（请检查你的邮箱并点击确认链接）</p>
-        <div class="auth-demo-code" id="demoCodeBox"></div>
-        <input type="text" id="verifyCodeInput" placeholder="请输入 6 位验证码" maxlength="6" />
-        <button id="verifySubmitBtn" class="auth-primary-btn">完成验证并登录</button>
+        <p class="auth-desc">确认邮件已发送至 <span id="verifyEmailTarget"></span>，请打开邮件并点击确认链接。</p>
+        <div class="auth-demo-code" id="demoCodeBox">请使用最新一封邮件中的确认链接。这里不需要输入验证码。</div>
+        <button id="verifySubmitBtn" class="auth-primary-btn">我已确认，返回登录</button>
         <p class="auth-error" id="verifyError"></p>
         <div class="auth-links">
-          <a href="#" id="resendCodeLink">重新发送验证码</a>
+          <a href="#" id="resendCodeLink">重新发送确认邮件</a>
           <a href="#" id="backToLoginFromVerify">返回登录</a>
         </div>
       </div>
