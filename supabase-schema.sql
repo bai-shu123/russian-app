@@ -4,9 +4,18 @@ create extension if not exists pgcrypto;
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text not null,
+  email text,
   role text not null default 'user' check (role in ('user', 'admin')),
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles add column if not exists email text;
+
+update public.profiles as profile
+set email = users.email
+from auth.users as users
+where profile.id = users.id
+  and profile.email is distinct from users.email;
 
 create unique index if not exists profiles_username_lower_idx
   on public.profiles (lower(username));
@@ -69,10 +78,11 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, username)
+  insert into public.profiles (id, username, email)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1))
+    coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
+    new.email
   )
   on conflict (id) do nothing;
   return new;
@@ -84,5 +94,7 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute procedure public.handle_new_user();
 
--- After registering your own account, run this once to make it an administrator:
--- update public.profiles set role = 'admin' where username = '你的用户名';
+-- The project owner chose the registered username "admin" as the administrator.
+update public.profiles
+set role = 'admin'
+where lower(username) = 'admin';

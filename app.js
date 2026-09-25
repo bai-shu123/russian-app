@@ -270,27 +270,9 @@ async function renderFeedback() {
   try {
     const all = await loadFeedback();
     const mine = all.filter(item => item.user_id === window.Auth.currentUserId || item.username === currentUsername);
-    const adminPanel = document.getElementById('adminFeedbackPanel');
-    const allList = document.getElementById('allFeedbackList');
-    const pendingCount = all.filter(item => !item.reply).length;
     document.getElementById('feedbackCount').textContent = mine.length + ' 条';
     document.getElementById('feedbackStatus').textContent = mine.length ? '已留言 ' + mine.length + ' 条' : '欢迎反馈';
-    document.getElementById('adminFeedbackCount').textContent = pendingCount + ' 条待处理';
     myList.innerHTML = mine.length ? mine.map(item => renderFeedbackCard(item, false)).join('') : '<div class="feedback-empty"><strong>还没有留言</strong><span>你的第一条反馈会出现在这里。</span></div>';
-    if (currentRole === 'admin') {
-      adminPanel.classList.remove('hidden');
-      allList.innerHTML = all.length ? all.map(item => renderFeedbackCard(item, true)).join('') : '<div class="feedback-empty"><strong>暂时没有用户留言</strong><span>新的留言会显示在这里。</span></div>';
-      allList.querySelectorAll('.reply-btn').forEach(btn => btn.addEventListener('click', async () => {
-        const input = allList.querySelector('.admin-reply-input[data-feedback-id="' + btn.dataset.feedbackId + '"]');
-        const reply = input.value.trim();
-        if (!reply) { input.focus(); return; }
-        const { error } = await window.Auth.supabase.from('feedback').update({ reply, replied_at: new Date().toISOString() }).eq('id', btn.dataset.feedbackId);
-        if (error) { input.value = error.message; return; }
-        await renderFeedback();
-      }));
-    } else {
-      adminPanel.classList.add('hidden');
-    }
   } catch (error) {
     myList.innerHTML = '<div class="feedback-empty"><strong>反馈服务暂时不可用</strong><span>' + escapeFeedbackHtml(error.message) + '</span></div>';
   }
@@ -766,22 +748,68 @@ document.getElementById('resetProgressBtn').addEventListener('click', () => {
 // ---------- 管理员面板 ----------
 async function renderAdminPanel() {
   const listEl = document.getElementById('adminUserList');
-  listEl.innerHTML = '<p class="section-desc">正在加载用户...</p>';
+  const feedbackEl = document.getElementById('adminFeedbackList');
+  const accessMessage = document.getElementById('adminAccessMessage');
+  const dashboardContent = document.getElementById('adminDashboardContent');
+  if (currentRole !== 'admin') {
+    accessMessage.textContent = '当前账号不是管理员。请先在 Supabase 的 profiles 表中将该账号 role 设置为 admin，然后退出并重新登录。';
+    accessMessage.classList.remove('hidden');
+    dashboardContent.classList.add('hidden');
+    return;
+  }
+  accessMessage.classList.add('hidden');
+  dashboardContent.classList.remove('hidden');
+  listEl.innerHTML = '<p class="section-desc">正在加载账号...</p>';
+  feedbackEl.innerHTML = '<p class="section-desc">正在加载反馈...</p>';
   try {
-    const users = await window.Auth.listProfiles();
-    if (!users.length) { listEl.innerHTML = '<p class="section-desc">暂无注册用户</p>'; return; }
-    listEl.innerHTML = users.map(u => {
+    const [users, feedbackItems] = await Promise.all([
+      window.Auth.listProfiles(),
+      loadFeedback()
+    ]);
+    const pendingCount = feedbackItems.filter(item => !item.reply).length;
+    document.getElementById('adminUserTotal').textContent = users.length;
+    document.getElementById('adminFeedbackTotal').textContent = feedbackItems.length;
+    document.getElementById('adminPendingTotal').textContent = pendingCount;
+    document.getElementById('adminUserCount').textContent = users.length + ' 个账号';
+    document.getElementById('adminFeedbackCount').textContent = pendingCount + ' 条待处理';
+    listEl.innerHTML = users.length ? users.map(u => {
       const createdDate = new Date(u.created_at).toLocaleString('zh-CN');
       return '<div class="admin-user-card">' +
         '<div class="row"><span class="label">用户名</span><span>' + escapeFeedbackHtml(u.username) + (u.role === 'admin' ? '<span class="admin-badge role-admin">管理员</span>' : '') + '</span></div>' +
+        (u.email ? '<div class="row"><span class="label">注册邮箱</span><span>' + escapeFeedbackHtml(u.email) + '</span></div>' : '') +
         '<div class="row"><span class="label">账号 ID</span><span>' + escapeFeedbackHtml(u.id.slice(0, 8)) + '...</span></div>' +
-        '<div class="row"><span class="label">状态</span><span><span class="admin-badge verified">已注册</span></span></div>' +
+        '<div class="row"><span class="label">账号角色</span><span>' + (u.role === 'admin' ? '管理员' : '普通用户') + '</span></div>' +
+        '<div class="row"><span class="label">状态</span><span><span class="admin-badge verified">正常</span></span></div>' +
         '<div class="row"><span class="label">注册时间</span><span>' + createdDate + '</span></div></div>';
-    }).join('');
+    }).join('') : '<p class="section-desc">暂无注册账号</p>';
+    feedbackEl.innerHTML = feedbackItems.length
+      ? feedbackItems.map(item => renderFeedbackCard(item, true)).join('')
+      : '<div class="feedback-empty"><strong>暂时没有用户反馈</strong><span>用户提交的留言会显示在这里。</span></div>';
+    feedbackEl.querySelectorAll('.reply-btn').forEach(btn => btn.addEventListener('click', async () => {
+      const input = feedbackEl.querySelector('.admin-reply-input[data-feedback-id="' + btn.dataset.feedbackId + '"]');
+      const reply = input.value.trim();
+      if (!reply) { input.focus(); return; }
+      btn.disabled = true;
+      btn.textContent = '发送中...';
+      const { error } = await window.Auth.supabase
+        .from('feedback')
+        .update({ reply, replied_at: new Date().toISOString() })
+        .eq('id', btn.dataset.feedbackId);
+      if (error) {
+        btn.disabled = false;
+        btn.textContent = '发送回复';
+        input.value = error.message;
+        return;
+      }
+      await renderAdminPanel();
+    }));
   } catch (error) {
     listEl.innerHTML = '<p class="section-desc">用户列表加载失败：' + escapeFeedbackHtml(error.message) + '</p>';
+    feedbackEl.innerHTML = '<p class="section-desc">反馈列表加载失败：' + escapeFeedbackHtml(error.message) + '</p>';
   }
 }
+
+document.getElementById('refreshAdminBtn').addEventListener('click', renderAdminPanel);
 // ---------- 进入应用 ----------
 async function enterApp(username, role) {
   currentUsername = username;

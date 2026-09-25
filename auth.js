@@ -115,10 +115,18 @@ async function resetPassword(password) {
 }
 
 async function listProfiles() {
-  const { data, error } = await supabaseClient
+  let { data, error } = await supabaseClient
     .from('profiles')
-    .select('id, username, role, created_at')
+    .select('id, username, email, role, created_at')
     .order('created_at', { ascending: false });
+  if (error && /email/i.test(error.message || '')) {
+    const fallback = await supabaseClient
+      .from('profiles')
+      .select('id, username, role, created_at')
+      .order('created_at', { ascending: false });
+    data = fallback.data;
+    error = fallback.error;
+  }
   if (error) throw error;
   return data || [];
 }

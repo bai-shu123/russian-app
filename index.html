@@ -99,7 +99,7 @@
       <button class="tab-btn" data-tab="progress">我的进度</button>
       <a class="grammar-nav-link" href="grammar.html">变位与变格</a>
       <button class="tab-btn" data-tab="feedback">留言反馈</button>
-      <button class="tab-btn hidden" data-tab="admin" id="adminTabBtn">管理员面板</button>
+      <button class="tab-btn hidden" data-tab="admin" id="adminTabBtn">管理员后台</button>
     </nav>
 
     <main>
@@ -237,14 +237,34 @@
           </form>
           <div class="feedback-list-panel"><div class="panel-heading"><h3>我的留言</h3><span id="feedbackCount">0 条</span></div><div id="myFeedbackList" class="feedback-list"></div></div>
         </div>
-        <div id="adminFeedbackPanel" class="admin-feedback-panel hidden"><div class="panel-heading"><div><p class="eyebrow">ADMIN</p><h3>用户留言管理</h3></div><span id="adminFeedbackCount">0 条待处理</span></div><div id="allFeedbackList" class="feedback-list"></div></div>
       </section>
 
       <!-- 管理员面板 -->
       <section id="admin" class="tab-panel">
-        <h2 class="admin-title">👑 管理员面板</h2>
-        <p class="section-desc">查看所有注册用户</p>
-        <div id="adminUserList" class="admin-user-list"></div>
+        <div class="admin-dashboard-header">
+          <div>
+            <p class="eyebrow">ADMIN CONTROL</p>
+            <h2 class="admin-title">管理员后台</h2>
+            <p class="section-desc">集中查看注册账号、接收用户反馈并进行回复。</p>
+          </div>
+          <button id="refreshAdminBtn" class="mini-btn" type="button">刷新数据</button>
+        </div>
+        <div class="admin-summary-grid">
+          <div class="admin-summary-card"><strong id="adminUserTotal">0</strong><span>注册账号</span></div>
+          <div class="admin-summary-card"><strong id="adminFeedbackTotal">0</strong><span>全部反馈</span></div>
+          <div class="admin-summary-card"><strong id="adminPendingTotal">0</strong><span>待回复</span></div>
+        </div>
+        <div id="adminAccessMessage" class="admin-access-message hidden"></div>
+        <div id="adminDashboardContent">
+          <div class="admin-dashboard-section">
+            <div class="panel-heading"><h3>注册账号信息</h3><span id="adminUserCount">0 个账号</span></div>
+            <div id="adminUserList" class="admin-user-list"></div>
+          </div>
+          <div class="admin-dashboard-section">
+            <div class="panel-heading"><h3>所有用户反馈</h3><span id="adminFeedbackCount">0 条待处理</span></div>
+            <div id="adminFeedbackList" class="feedback-list"></div>
+          </div>
+        </div>
       </section>
     </main>
 

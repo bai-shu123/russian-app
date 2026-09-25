@@ -593,6 +593,70 @@ footer {
 .admin-badge.unverified { background: #fbdada; color: var(--primary); }
 .admin-badge.role-admin { background: #ffe8b3; color: #8a6d00; }
 
+.admin-dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.admin-dashboard-header .admin-title,
+.admin-dashboard-header .section-desc {
+  text-align: left;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.admin-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.admin-summary-card,
+.admin-dashboard-section {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.admin-summary-card {
+  padding: 18px 12px;
+  text-align: center;
+}
+
+.admin-summary-card strong {
+  display: block;
+  color: var(--blue);
+  font-size: 1.8rem;
+}
+
+.admin-summary-card span {
+  color: var(--muted);
+  font-size: .8rem;
+}
+
+.admin-dashboard-section {
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+.admin-access-message {
+  padding: 16px;
+  border: 1px solid #f0c8c5;
+  border-radius: 10px;
+  background: #fff3f2;
+  color: var(--primary-dark);
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .admin-dashboard-header { flex-direction: column; }
+  .admin-summary-grid { grid-template-columns: 1fr; }
+}
+
 /* ==================== 课程模块样式 ==================== */
 .course-layout {
   display: grid;
