@@ -643,13 +643,7 @@ function buildQuiz() {
     return;
   }
   emptyState.classList.add('hidden');
-  const shuffled = shuffle(allWords);
-  const pickCount = Math.min(QUIZ_LENGTH, allWords.length);
-  quizQuestions = shuffled.slice(0, pickCount).map(word => {
-    const wrongPool = shuffle(allWords.filter(w => w.ru !== word.ru)).slice(0, 3).map(w => w.zh);
-    const options = shuffle([word.zh, ...wrongPool]);
-    return { question: word.ru, answer: word.zh, options };
-  });
+  quizQuestions = buildMixedQuiz(allWords, QUIZ_LENGTH);
   quizIndex = 0;
   quizScore = 0;
   quizResult.classList.add('hidden');
@@ -657,12 +651,50 @@ function buildQuiz() {
   renderQuizQuestion();
 }
 
+const CASE_QUESTIONS = [
+  { units: [1, 2], type: '选择正确词格', prompt: 'У меня нет ___（弟弟）.', answer: 'брата', options: ['брат', 'брата', 'брату', 'братом'], explanation: 'нет 后接属格：брат → брата。' },
+  { units: [1, 2], type: '选择正确词格', prompt: 'Я звоню ___（妈妈）.', answer: 'маме', options: ['мама', 'маму', 'маме', 'мамой'], explanation: 'звонить кому? 使用与格：мама → маме。' },
+  { units: [1, 2], type: '选择正确词格', prompt: 'Это ___（我的） книга.', answer: 'моя', options: ['мой', 'моя', 'моё', 'мои'], explanation: 'книга 是阴性单数，所以用 моя。' },
+  { units: [3], type: '选择正确词格', prompt: 'Мне ___ года.', answer: 'два', options: ['два', 'двух', 'двум', 'двумя'], explanation: '年龄表达“我两岁”：мне два года。' },
+  { units: [4], type: '选择正确词格', prompt: 'Я ___ утром.', answer: 'работаю', options: ['работать', 'работаю', 'работает', 'работают'], explanation: 'я 的第一变位现在时词尾是 -ю：работаю。' },
+  { units: [5], type: '选择正确词格', prompt: 'Я живу ___ городе.', answer: 'в', options: ['в', 'из', 'к', 'с'], explanation: '表示“在城市里”使用 в + 前置格：в городе。' },
+  { units: [6], type: '选择正确词格', prompt: 'Я покупаю ___（面包）.', answer: 'хлеб', options: ['хлеб', 'хлеба', 'хлебу', 'хлебом'], explanation: '无生命阳性名词的宾格与主格相同：хлеб。' },
+  { units: [7], type: '选择正确词格', prompt: 'Сегодня ___ холодно.', answer: 'очень', options: ['очень', 'оченью', 'оченьм', 'оченьи'], explanation: 'очень 是副词，形式不变。' },
+  { units: [8], type: '选择正确词格', prompt: 'Вчера она ___ дома.', answer: 'была', options: ['был', 'была', 'были', 'будет'], explanation: 'она 的过去时形式是 была。' },
+  { units: [5, 6], type: '选择正确词格', prompt: 'Мы говорим ___ школе.', answer: 'о', options: ['о', 'из', 'к', 'у'], explanation: 'говорить о ком? о чём?：говорим о школе。' }
+];
+
+const FILL_QUESTIONS = [
+  { units: [1], type: '选择正确单词', prompt: '___ зовут Анна.', answer: 'Меня', options: ['Меня', 'Моя', 'Мне', 'Мой'], explanation: '“我叫安娜”是 Меня зовут Анна。' },
+  { units: [2], type: '选择正确单词', prompt: 'Это ___ брат.', answer: 'мой', options: ['мой', 'моя', 'моё', 'мои'], explanation: 'брат 是阳性单数，使用 мой。' },
+  { units: [3], type: '选择正确单词', prompt: 'Мне двадцать ___ .', answer: 'лет', options: ['год', 'года', 'лет', 'году'], explanation: '20 后使用 лет。' },
+  { units: [4], type: '选择正确单词', prompt: 'Вечером я ___ дома.', answer: 'отдыхаю', options: ['отдыхать', 'отдыхаю', 'отдыхает', 'отдыхают'], explanation: 'я 的现在时形式是 отдыхаю。' },
+  { units: [5], type: '选择正确单词', prompt: 'Рядом с домом есть ___ .', answer: 'парк', options: ['парк', 'парка', 'парку', 'парком'], explanation: 'есть 后这里使用主格：парк。' },
+  { units: [6], type: '选择正确单词', prompt: 'Сколько ___ молоко?', answer: 'стоит', options: ['стоить', 'стоит', 'стоят', 'стоял'], explanation: '单数 молоко 搭配 стоит。' },
+  { units: [7], type: '选择正确单词', prompt: 'Зимой часто идёт ___ .', answer: 'снег', options: ['снег', 'снега', 'снегу', 'снегом'], explanation: 'идёт снег 表示“下雪”。' },
+  { units: [8], type: '选择正确单词', prompt: 'Завтра я ___ работать.', answer: 'буду', options: ['был', 'была', 'буду', 'были'], explanation: '第一人称简单将来时使用 буду + 原形。' }
+];
+
+function questionMatchesUnits(question) {
+  return question.units.some(unit => quizSelectedUnits.includes(unit));
+}
+
+function buildMixedQuiz(allWords, count) {
+  const grammarQuestions = shuffle([...FILL_QUESTIONS, ...CASE_QUESTIONS].filter(questionMatchesUnits));
+  const vocabularyQuestions = shuffle(allWords).map(word => {
+    const wrongPool = shuffle(allWords.filter(item => item.ru !== word.ru)).slice(0, 3).map(item => item.zh);
+    return { type: '选择正确单词', prompt: word.ru, answer: word.zh, options: shuffle([word.zh, ...wrongPool]), explanation: word.ru + '：' + word.zh };
+  });
+  return shuffle([...grammarQuestions, ...vocabularyQuestions]).slice(0, Math.min(count, grammarQuestions.length + vocabularyQuestions.length));
+}
+
 function renderQuizQuestion() {
   answered = false;
   const q = quizQuestions[quizIndex];
   document.getElementById('quizProgress').textContent = '第 ' + (quizIndex + 1) + ' / ' + quizQuestions.length + ' 题';
   document.getElementById('quizScore').textContent = '得分：' + quizScore;
-  document.getElementById('quizQuestion').textContent = q.question;
+  document.getElementById('quizType').textContent = q.type || '选择正确单词';
+  document.getElementById('quizQuestion').textContent = q.prompt || q.question;
   document.getElementById('quizFeedback').textContent = '';
   document.getElementById('nextQuestionBtn').classList.add('hidden');
 
@@ -690,7 +722,7 @@ function handleAnswer(btn, chosen, correctAnswer) {
     document.getElementById('quizFeedback').textContent = '✅ 回答正确！';
     document.getElementById('quizFeedback').style.color = '#2fa84f';
   } else {
-    document.getElementById('quizFeedback').textContent = '❌ 正确答案：' + correctAnswer;
+    document.getElementById('quizFeedback').textContent = '❌ 正确答案：' + correctAnswer + (quizQuestions[quizIndex].explanation ? '（' + quizQuestions[quizIndex].explanation + '）' : '');
     document.getElementById('quizFeedback').style.color = '#d52b1e';
   }
   document.getElementById('quizScore').textContent = '得分：' + quizScore;

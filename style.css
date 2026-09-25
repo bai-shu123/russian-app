@@ -301,6 +301,17 @@ main {
   color: var(--blue);
 }
 
+.quiz-type {
+  width: fit-content;
+  margin: 14px auto 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: var(--blue);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
 .quiz-options {
   display: grid;
   gap: 10px;
