@@ -94,7 +94,7 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute procedure public.handle_new_user();
 
--- The project owner chose the registered username "admin" as the administrator.
+-- The project owner chose the registered usernames "admin" and "baishu" as administrators.
 update public.profiles
 set role = 'admin'
-where lower(username) = 'admin';
+where lower(username) in ('admin', 'baishu');

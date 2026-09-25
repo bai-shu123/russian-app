@@ -1,6 +1,6 @@
--- Run this file once in Supabase SQL Editor after the "admin" account is registered.
+-- Run this file once in Supabase SQL Editor after the accounts are registered.
 -- It adds account email information for the administrator dashboard and grants
--- the existing username "admin" administrator privileges.
+-- administrator privileges to the existing usernames "admin" and "baishu".
 
 alter table public.profiles add column if not exists email text;
 
@@ -12,8 +12,9 @@ where profile.id = users.id
 
 update public.profiles
 set role = 'admin'
-where lower(username) = 'admin';
+where lower(username) in ('admin', 'baishu');
 
 select username, email, role, created_at
 from public.profiles
-where lower(username) = 'admin';
+where lower(username) in ('admin', 'baishu')
+order by username;
