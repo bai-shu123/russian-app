@@ -314,10 +314,72 @@ tabBtns.forEach(btn => {
 
 // ---------- 课程模块 ----------
 let currentCourseIndex = 0;
+let currentBookId = courseBooks[0].id;
+
+function currentBook() {
+  return courseBooks.find(book => book.id === currentBookId) || courseBooks[0];
+}
+
+function courseBookSelectionKey() {
+  return 'ru_course_book_selection::' + currentUsername.toLowerCase();
+}
+
+function setCourseBook(bookId, persist = true) {
+  const nextBook = courseBooks.find(book => book.id === bookId) || courseBooks[0];
+  currentBookId = nextBook.id;
+  courseData = nextBook.lessons;
+  currentCourseIndex = 0;
+  if (persist && currentUsername) localStorage.setItem(courseBookSelectionKey(), currentBookId);
+  renderBookSelectors();
+  renderCourseList();
+  renderCourseDetail();
+  initVocabUnitSelector();
+  refreshVocabWords();
+  initQuizUnitSelector();
+}
+
+function loadCourseBookSelection() {
+  const saved = currentUsername ? localStorage.getItem(courseBookSelectionKey()) : null;
+  setCourseBook(saved || courseBooks[0].id, false);
+}
+
+function renderBookSelector(containerId, compact) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  courseBooks.forEach(book => {
+    const btn = document.createElement('button');
+    btn.className = (compact ? 'book-mini-btn' : 'book-selector-btn') + (book.id === currentBookId ? ' active' : '');
+    btn.type = 'button';
+    btn.textContent = compact ? book.shortTitle : book.title;
+    btn.title = book.title + '：' + book.lessons.length + ' 课';
+    btn.addEventListener('click', () => setCourseBook(book.id));
+    container.appendChild(btn);
+  });
+}
+
+function renderBookSelectors() {
+  const book = currentBook();
+  const titleEl = document.getElementById('currentBookTitle');
+  const descEl = document.getElementById('currentBookDesc');
+  if (titleEl) titleEl.textContent = book.title;
+  if (descEl) descEl.textContent = book.description + ' 当前共 ' + book.lessons.length + ' 课。';
+  const vocabTitle = document.getElementById('vocabUnitSelectorTitle');
+  const quizTitle = document.getElementById('quizUnitSelectorTitle');
+  if (vocabTitle) vocabTitle.textContent = '📚 选择要学习的单元（' + book.title + '，可多选）';
+  if (quizTitle) quizTitle.textContent = '📚 选择要测验的单元（' + book.title + '，可多选）';
+  renderBookSelector('courseBookSelectorButtons', false);
+  renderBookSelector('vocabBookSelectorButtons', true);
+  renderBookSelector('quizBookSelectorButtons', true);
+}
 
 function renderCourseList() {
   const listEl = document.getElementById('courseList');
   listEl.innerHTML = '';
+  if (courseData.length === 0) {
+    listEl.innerHTML = '<div class="course-list-empty">这个分类还没有课程</div>';
+    return;
+  }
   courseData.forEach((lesson, idx) => {
     const item = document.createElement('div');
     item.className = 'course-list-item' + (idx === currentCourseIndex ? ' active' : '');
@@ -334,6 +396,16 @@ function renderCourseList() {
 function renderCourseDetail() {
   const lesson = courseData[currentCourseIndex];
   const detailEl = document.getElementById('courseDetail');
+  if (!lesson) {
+    const book = currentBook();
+    detailEl.innerHTML =
+      '<div class="course-empty-detail">' +
+      '<h3>' + book.title + '</h3>' +
+      '<p>' + book.description + '</p>' +
+      '<p>这个大类已经创建好，后续可以直接添加课程、词汇和测验题。</p>' +
+      '</div>';
+    return;
+  }
 
   let vocabHtml = '<table class="vocab-table">';
   vocabHtml += '<tr><th>俄语</th><th>词性</th><th>释义</th><th></th></tr>';
@@ -379,8 +451,9 @@ function renderCourseDetail() {
 
 function markLessonViewed(lessonId) {
   if (!progress.lessonsViewed) progress.lessonsViewed = [];
-  if (!progress.lessonsViewed.includes(lessonId)) {
-    progress.lessonsViewed.push(lessonId);
+  const scopedLessonId = currentBookId + ':' + lessonId;
+  if (!progress.lessonsViewed.includes(scopedLessonId)) {
+    progress.lessonsViewed.push(scopedLessonId);
     saveProgress(progress);
     refreshHeaderAndStats();
   }
@@ -408,16 +481,21 @@ let vocabSelectedUnits = [];
 let quizSelectedUnits = [];
 
 function unitSelectionKey(type) {
+  return 'ru_unit_selection_' + type + '::' + currentBookId + '::' + currentUsername.toLowerCase();
+}
+
+function legacyUnitSelectionKey(type) {
   return 'ru_unit_selection_' + type + '::' + currentUsername.toLowerCase();
 }
 
 function loadUnitSelection(type) {
-  const raw = localStorage.getItem(unitSelectionKey(type));
+  const raw = localStorage.getItem(unitSelectionKey(type)) || (currentBookId === courseBooks[0].id ? localStorage.getItem(legacyUnitSelectionKey(type)) : null);
+  const availableIds = courseData.map(l => l.id);
+  if (availableIds.length === 0) return [];
   if (raw) {
     try {
       const arr = JSON.parse(raw);
       if (Array.isArray(arr) && arr.length > 0) {
-        const availableIds = courseData.map(l => l.id);
         const validIds = arr.filter(id => availableIds.includes(id));
         const hadAllOriginalEight = [1, 2, 3, 4, 5, 6, 7, 8].every(id => validIds.includes(id));
         if (hadAllOriginalEight && courseData.length > validIds.length) return availableIds;
@@ -760,6 +838,8 @@ const CORE_GRAMMAR_QUESTIONS = [
 ];
 
 function questionMatchesUnits(question) {
+  if (!question.bookId && currentBookId !== courseBooks[0].id) return false;
+  if (question.bookId && question.bookId !== currentBookId) return false;
   return question.units.some(unit => quizSelectedUnits.includes(unit));
 }
 
@@ -922,13 +1002,9 @@ async function enterApp(username, role) {
   document.getElementById('adminTabBtn').classList.toggle('hidden', role !== 'admin');
 
   progress = updateStreak(loadProgress(username));
-  renderCourseList();
-  renderCourseDetail();
+  loadCourseBookSelection();
   await renderFeedback();
   renderAlphabet();
-  initVocabUnitSelector();
-  refreshVocabWords();
-  initQuizUnitSelector();
   refreshHeaderAndStats();
 }
 

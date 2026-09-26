@@ -105,6 +105,14 @@
     <main>
       <!-- 课程 -->
       <section id="course" class="tab-panel active">
+        <div class="book-selector-panel">
+          <div>
+            <span class="book-selector-kicker">教材分类</span>
+            <h2 id="currentBookTitle">走遍俄罗斯 1</h2>
+            <p id="currentBookDesc">A1 入门：字母、基础句型、日常主题、格和动词基础。</p>
+          </div>
+          <div class="book-selector-actions" id="courseBookSelectorButtons"></div>
+        </div>
         <div class="course-layout">
           <div class="course-list" id="courseList"></div>
           <div class="course-detail" id="courseDetail"></div>
@@ -121,8 +129,9 @@
       <section id="vocab" class="tab-panel">
         <div class="unit-selector-panel">
           <div class="unit-selector-header">
-            <span class="unit-selector-title">📚 选择要学习的单元（走遍俄罗斯 1，可多选）</span>
+            <span class="unit-selector-title" id="vocabUnitSelectorTitle">📚 选择要学习的单元（走遍俄罗斯 1，可多选）</span>
             <div class="unit-selector-actions">
+              <div class="book-selector-mini" id="vocabBookSelectorButtons"></div>
               <button class="mini-btn" id="vocabSelectAllBtn">全选</button>
               <button class="mini-btn" id="vocabSelectNoneBtn">清空</button>
             </div>
@@ -163,8 +172,9 @@
       <section id="quiz" class="tab-panel">
         <div class="unit-selector-panel">
           <div class="unit-selector-header">
-            <span class="unit-selector-title">📚 选择要测验的单元（走遍俄罗斯 1，可多选）</span>
+            <span class="unit-selector-title" id="quizUnitSelectorTitle">📚 选择要测验的单元（走遍俄罗斯 1，可多选）</span>
             <div class="unit-selector-actions">
+              <div class="book-selector-mini" id="quizBookSelectorButtons"></div>
               <button class="mini-btn" id="quizSelectAllBtn">全选</button>
               <button class="mini-btn" id="quizSelectNoneBtn">清空</button>
             </div>

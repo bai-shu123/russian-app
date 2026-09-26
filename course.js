@@ -1,6 +1,6 @@
 // =========================================================
-// 走遍俄罗斯 1 配套学习课程（原创编写）
-// 说明：按全册常见 15 课学习进度组织，覆盖 A1 阶段核心主题、词汇和语法。
+// 走遍俄罗斯配套学习课程（原创编写）
+// 说明：按教材册次分大类；第一册按常见 15 课学习进度组织。
 // 内容为自编讲解、词表和例句，避免照搬出版社教材原文。
 // =========================================================
 
@@ -8,7 +8,13 @@ const w = (ru, pos, zh) => ({ ru, pos, zh });
 const ex = (ru, zh) => ({ ru, zh });
 const g = (title, explain, examples) => ({ title, explain, examples });
 
-const courseData = [
+const courseBooks = [
+  {
+    id: "russian-road-1",
+    title: "走遍俄罗斯 1",
+    shortTitle: "第一册",
+    description: "A1 入门：字母、基础句型、日常主题、格和动词基础。",
+    lessons: [
   {
     id: 1,
     title: "第 1 课：字母、发音与问候",
@@ -792,4 +798,15 @@ const courseData = [
       ]
     }
   }
+    ]
+  },
+  {
+    id: "russian-road-2",
+    title: "走遍俄罗斯 2",
+    shortTitle: "第二册",
+    description: "预留分类：用于继续添加第二册课程、词汇和测验。",
+    lessons: []
+  }
 ];
+
+let courseData = courseBooks[0].lessons;
