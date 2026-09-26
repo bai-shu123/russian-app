@@ -171,6 +171,11 @@
           </div>
           <div class="unit-checkbox-grid" id="quizUnitCheckboxes"></div>
           <p class="unit-selector-count" id="quizUnitCount"></p>
+          <div class="quiz-count-row">
+            <label for="quizQuestionCount">题目数量</label>
+            <input id="quizQuestionCount" type="number" min="10" max="100" step="5" value="10" />
+            <span>最少 10 题</span>
+          </div>
           <button id="startQuizBtn" class="auth-primary-btn quiz-start-btn">开始测验</button>
         </div>
         <div id="quizEmptyState" class="empty-state hidden">

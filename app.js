@@ -625,12 +625,21 @@ function buildQuiz() {
     return;
   }
   emptyState.classList.add('hidden');
-  quizQuestions = buildMixedQuiz(allWords, QUIZ_LENGTH);
+  quizQuestions = buildMixedQuiz(allWords, getQuizQuestionCount());
   quizIndex = 0;
   quizScore = 0;
   quizResult.classList.add('hidden');
   quizArea.classList.remove('hidden');
   renderQuizQuestion();
+}
+
+function getQuizQuestionCount() {
+  const input = document.getElementById('quizQuestionCount');
+  const value = input ? Number(input.value) : QUIZ_LENGTH;
+  const safeValue = Number.isFinite(value) ? value : QUIZ_LENGTH;
+  const count = Math.max(10, Math.min(100, Math.round(safeValue)));
+  if (input) input.value = count;
+  return count;
 }
 
 const CASE_QUESTIONS = [
@@ -657,12 +666,78 @@ const FILL_QUESTIONS = [
   { units: [8], type: '选择正确单词', prompt: 'Завтра я ___ работать.', answer: 'буду', options: ['был', 'была', 'буду', 'были'], explanation: '第一人称简单将来时使用 буду + 原形。' }
 ];
 
+const CORE_GRAMMAR_QUESTIONS = [
+  { units: [1, 2], type: '名词性别', prompt: 'словарь 是 ___ 名词。', answer: '阳性', options: ['阳性', '阴性', '中性', '复数'], explanation: '以软音符结尾的 словарь 是阳性名词。' },
+  { units: [1, 2], type: '名词性别', prompt: 'окно 是 ___ 名词。', answer: '中性', options: ['阳性', '阴性', '中性', '动物名词'], explanation: '以 -о 结尾的名词通常是中性。' },
+  { units: [1, 2], type: '动物/非动物名词', prompt: 'Я вижу ___（学生）.', answer: 'студента', options: ['студент', 'студента', 'студенту', 'студентом'], explanation: '有生命阳性名词宾格同属格：студент → студента。' },
+  { units: [5, 6], type: '动物/非动物名词', prompt: 'Я вижу ___（桌子）.', answer: 'стол', options: ['стол', 'стола', 'столу', 'столом'], explanation: '无生命阳性名词宾格同主格：стол。' },
+  { units: [1, 2], type: '第二格 属格', prompt: 'У Анны нет ___（书）.', answer: 'книги', options: ['книга', 'книги', 'книгу', 'книгой'], explanation: 'нет 后使用第二格：книга → книги。' },
+  { units: [3, 6], type: '第二格 属格', prompt: 'два ___（卢布）', answer: 'рубля', options: ['рубль', 'рубля', 'рублей', 'рублём'], explanation: '2-4 后常用名词单数第二格：рубля。' },
+  { units: [5], type: '第二格 属格', prompt: 'Мы приехали из ___（城市）.', answer: 'города', options: ['город', 'города', 'городу', 'городом'], explanation: 'из 后接第二格：из города。' },
+  { units: [2, 5], type: '第三格 与格', prompt: 'Мне нравится эта ___ .', answer: 'книга', options: ['книга', 'книги', 'книгу', 'книгой'], explanation: 'нравится 的喜欢对象是主语：эта книга。' },
+  { units: [2, 5], type: '第三格 与格', prompt: '___ нравится музыка.（我喜欢音乐）', answer: 'Мне', options: ['Я', 'Меня', 'Мне', 'Мной'], explanation: 'кому нравится? 使用与格：мне。' },
+  { units: [4, 6], type: '第五格 工具格', prompt: 'Я еду ___（公共汽车）.', answer: 'автобусом', options: ['автобус', 'автобуса', 'автобусом', 'автобусе'], explanation: '乘坐交通工具常用工具格：автобусом。' },
+  { units: [8], type: '第五格 工具格', prompt: 'Он был ___（学生）.', answer: 'студентом', options: ['студент', 'студента', 'студентом', 'студенте'], explanation: 'быть 表示“曾经是”时，身份常用工具格。' },
+  { units: [5], type: '第六格 前置格', prompt: 'Мы живём в ___（公寓）.', answer: 'квартире', options: ['квартира', 'квартиры', 'квартиру', 'квартире'], explanation: 'в + 第六格表示地点：в квартире。' },
+  { units: [5], type: '第六格 前置格', prompt: 'Я думаю о ___（朋友）.', answer: 'друге', options: ['друг', 'друга', 'другу', 'друге'], explanation: 'о + 第六格：о друге。' },
+  { units: [2, 5], type: '名词复数', prompt: 'мама 的复数第一格是 ___ .', answer: 'мамы', options: ['мамы', 'мам', 'мамам', 'мамами'], explanation: '阴性 -а 名词复数主格常变 -ы。' },
+  { units: [5, 6], type: '复数第二格', prompt: 'пять ___（书）', answer: 'книг', options: ['книга', 'книги', 'книг', 'книгам'], explanation: '5 以上后接复数第二格：книг。' },
+  { units: [1], type: '人称代词', prompt: 'Я говорю с ___（你）.', answer: 'тобой', options: ['ты', 'тебя', 'тебе', 'тобой'], explanation: 'с + 第五格：с тобой。' },
+  { units: [1], type: '人称代词', prompt: 'Она ждёт ___（我）.', answer: 'меня', options: ['я', 'меня', 'мне', 'мной'], explanation: 'ждать кого? 常用第四/第二格形式 меня。' },
+  { units: [2], type: '物主代词', prompt: 'Это ___ окно.', answer: 'моё', options: ['мой', 'моя', 'моё', 'мои'], explanation: 'окно 是中性单数，使用 моё。' },
+  { units: [2], type: '物主代词', prompt: 'Это ___ родители.', answer: 'мои', options: ['мой', 'моя', 'моё', 'мои'], explanation: 'родители 是复数，使用 мои。' },
+  { units: [2], type: '物主代词', prompt: '___ дом большой.（他的房子很大）', answer: 'Его', options: ['Его', 'Ему', 'Им', 'О нём'], explanation: 'его 作物主代词时不变格。' },
+  { units: [1, 5], type: '指示代词', prompt: '___ книга интересная.', answer: 'Эта', options: ['Этот', 'Эта', 'Это', 'Эти'], explanation: 'книга 是阴性单数：эта книга。' },
+  { units: [1, 5], type: '指示代词', prompt: 'Я читаю ___ книгу.', answer: 'эту', options: ['этот', 'эта', 'эту', 'эти'], explanation: '阴性名词宾格：эта → эту。' },
+  { units: [1], type: '疑问代词', prompt: '___ это? Это Анна.', answer: 'Кто', options: ['Кто', 'Что', 'Где', 'Куда'], explanation: '问人是谁用 кто。' },
+  { units: [5], type: '疑问代词', prompt: '___ ты идёшь? В школу.', answer: 'Куда', options: ['Где', 'Куда', 'Откуда', 'Какой'], explanation: '问“到哪里去”用 куда。' },
+  { units: [5], type: '疑问代词', prompt: '___ ты приехал? Из Москвы.', answer: 'Откуда', options: ['Где', 'Куда', 'Откуда', 'Когда'], explanation: '问“从哪里来”用 откуда。' },
+  { units: [2, 5], type: '形容词一致', prompt: '___ дом', answer: 'большой', options: ['большой', 'большая', 'большое', 'большие'], explanation: 'дом 是阳性单数：большой дом。' },
+  { units: [2, 5], type: '形容词一致', prompt: '___ семья', answer: 'большая', options: ['большой', 'большая', 'большое', 'большие'], explanation: 'семья 是阴性单数：большая семья。' },
+  { units: [5], type: '形容词格变化', prompt: 'в ___ городе', answer: 'большом', options: ['большой', 'большого', 'большом', 'большим'], explanation: 'в + 第六格：в большом городе。' },
+  { units: [6], type: '形容词格变化', prompt: 'Я покупаю ___ книгу.', answer: 'новую', options: ['новая', 'новую', 'новой', 'новые'], explanation: '阴性单数宾格：новую книгу。' },
+  { units: [4], type: '第一变位', prompt: 'мы ___（работать）', answer: 'работаем', options: ['работаю', 'работаешь', 'работаем', 'работают'], explanation: 'мы 的第一变位词尾是 -ем。' },
+  { units: [4], type: '第一变位', prompt: 'они ___（читать）', answer: 'читают', options: ['читаю', 'читает', 'читаем', 'читают'], explanation: 'они 的第一变位词尾是 -ют。' },
+  { units: [4], type: '第二变位', prompt: 'ты ___（говорить）', answer: 'говоришь', options: ['говорю', 'говоришь', 'говорит', 'говорят'], explanation: 'ты 的第二变位词尾是 -ишь。' },
+  { units: [4], type: '第二变位', prompt: 'они ___（любить）', answer: 'любят', options: ['люблю', 'любит', 'любим', 'любят'], explanation: 'они 的第二变位词尾是 -ят。' },
+  { units: [8], type: '过去时', prompt: 'Вчера он ___ книгу.', answer: 'читал', options: ['читал', 'читала', 'читали', 'читать'], explanation: 'он 的过去时阳性：читал。' },
+  { units: [8], type: '过去时', prompt: 'Вчера она ___ дома.', answer: 'была', options: ['был', 'была', 'было', 'были'], explanation: 'она 对应 была。' },
+  { units: [8], type: '复合将来时', prompt: 'Завтра мы ___ читать.', answer: 'будем', options: ['буду', 'будешь', 'будем', 'будут'], explanation: 'мы 的 быть 将来时是 будем。' },
+  { units: [8], type: '完成体将来时', prompt: 'Завтра я ___ письмо.（写完）', answer: 'напишу', options: ['пишу', 'писал', 'напишу', 'писать'], explanation: '完成体表示一次性且有结果的动作。' },
+  { units: [4, 8], type: '动词体', prompt: 'Каждый день я ___ русский язык.', answer: 'учу', options: ['учу', 'выучу', 'прочитаю', 'куплю'], explanation: '每天重复、习惯动作常用未完成体。' },
+  { units: [6, 8], type: '动词体', prompt: 'Сегодня я ___ хлеб и молоко.（买完）', answer: 'куплю', options: ['покупаю', 'куплю', 'покупал', 'покупать'], explanation: '一次性有结果的将来动作可用完成体：куплю。' },
+  { units: [4, 5], type: '运动动词', prompt: 'Сейчас я ___ в школу.', answer: 'иду', options: ['иду', 'хожу', 'ехал', 'ездил'], explanation: '现在正朝一个方向步行去，用 идти。' },
+  { units: [4, 5], type: '运动动词', prompt: 'Я часто ___ в парк.', answer: 'хожу', options: ['иду', 'хожу', 'пойду', 'приду'], explanation: '经常往返或习惯性步行，用 ходить。' },
+  { units: [5, 8], type: '运动动词', prompt: 'Завтра мы ___ в Москву на поезде.', answer: 'поедем', options: ['едем', 'ездим', 'поедем', 'приедем'], explanation: '将要乘交通工具出发，用 поехать 的变位。' },
+  { units: [5, 8], type: '运动动词', prompt: 'Когда ты ___ домой?（到达）', answer: 'приедешь', options: ['поедешь', 'приедешь', 'ездишь', 'едешь'], explanation: '到达某地用 приехать：приедешь。' },
+  { units: [4], type: '命令式', prompt: '___, пожалуйста!（请读）', answer: 'Читайте', options: ['Читаешь', 'Читайте', 'Читал', 'Читают'], explanation: '对“您/你们”使用命令式 читайте。' },
+  { units: [4], type: '命令式', prompt: '___ сюда!（你过来）', answer: 'Иди', options: ['Иду', 'Иди', 'Идёшь', 'Идут'], explanation: 'ты 形式命令式：иди。' },
+  { units: [4, 8], type: '反身动词', prompt: 'Я ___ домой вечером.', answer: 'возвращаюсь', options: ['возвращаю', 'возвращаюсь', 'возвращает', 'возвращаются'], explanation: '-ся 反身动词第一人称：возвращаюсь。' },
+  { units: [3], type: '基数词', prompt: '64 读作 ___ .', answer: 'шестьдесят четыре', options: ['шестнадцать четыре', 'шестьдесят четыре', 'сорок шесть', 'шестьсот четыре'], explanation: '64 = шестьдесят четыре。' },
+  { units: [3], type: '数词搭配名词', prompt: 'три ___（苹果）', answer: 'яблока', options: ['яблоко', 'яблока', 'яблок', 'яблоком'], explanation: '2-4 后用单数第二格：яблока。' },
+  { units: [3, 6], type: '数词搭配名词', prompt: 'семь ___（卢布）', answer: 'рублей', options: ['рубль', 'рубля', 'рублей', 'рублём'], explanation: '5 以上后用复数第二格：рублей。' },
+  { units: [3, 4], type: '时间表达', prompt: 'Сейчас два ___ .', answer: 'часа', options: ['час', 'часа', 'часов', 'часом'], explanation: 'два 后用单数第二格：два часа。' },
+  { units: [3, 4], type: '时间表达', prompt: 'Встреча ___ понедельник.', answer: 'в', options: ['в', 'на', 'из', 'с'], explanation: '星期几常用 в + 第四格：в понедельник。' },
+  { units: [5], type: '前置词 в/на', prompt: 'Я иду ___ школу.', answer: 'в', options: ['в', 'на', 'из', 'с'], explanation: '到学校去：идти в школу，в + 第四格。' },
+  { units: [5], type: '前置词 в/на', prompt: 'Я учусь ___ университете.', answer: 'в', options: ['в', 'на', 'к', 'из'], explanation: '在哪里学习：в + 第六格。' },
+  { units: [5], type: '前置词 из/от', prompt: 'Он приехал ___ Москвы.', answer: 'из', options: ['в', 'из', 'к', 'о'], explanation: '从城市来用 из + 第二格。' },
+  { units: [2, 5], type: '前置词 к', prompt: 'Я иду ___ врачу.', answer: 'к', options: ['к', 'с', 'из', 'о'], explanation: '到某人那里/面前用 к + 第三格。' },
+  { units: [2, 4], type: '前置词 с', prompt: 'Я говорю ___ другом.', answer: 'с', options: ['в', 'на', 'с', 'к'], explanation: '和某人一起/交谈用 с + 第五格。' },
+  { units: [1], type: '基础句型', prompt: '___ студент.', answer: 'Это', options: ['Это', 'Эта', 'Эти', 'Есть'], explanation: '介绍“这是……”常用 Это，不随性数变化。' },
+  { units: [1], type: '疑问句', prompt: '___ это? Это книга.', answer: 'Что', options: ['Кто', 'Что', 'Где', 'Куда'], explanation: '问物品是什么用 что。' },
+  { units: [4], type: '主谓一致', prompt: 'Студенты ___ в аудитории.', answer: 'сидят', options: ['сидит', 'сидят', 'сижу', 'сидишь'], explanation: '复数主语 студенты 搭配复数谓语 сидят。' },
+  { units: [4, 8], type: '时间从句', prompt: 'Я позвоню, ___ приду домой.', answer: 'когда', options: ['когда', 'потому что', 'что', 'куда'], explanation: '表示“当……时候”用 когда。' },
+  { units: [4, 8], type: '原因从句', prompt: 'Я дома, ___ сегодня холодно.', answer: 'потому что', options: ['когда', 'потому что', 'что', 'откуда'], explanation: '说明原因用 потому что。' },
+  { units: [1, 8], type: '说明从句', prompt: 'Я знаю, ___ он студент.', answer: 'что', options: ['что', 'когда', 'почему', 'куда'], explanation: '说明“知道……这件事”用 что。' },
+  { units: [1, 2], type: '否定句', prompt: 'У меня нет ___（问题）.', answer: 'вопроса', options: ['вопрос', 'вопроса', 'вопросу', 'вопросом'], explanation: 'нет 后用第二格：вопроса。' }
+];
+
 function questionMatchesUnits(question) {
   return question.units.some(unit => quizSelectedUnits.includes(unit));
 }
 
 function buildMixedQuiz(allWords, count) {
-  const grammarQuestions = shuffle([...FILL_QUESTIONS, ...CASE_QUESTIONS].filter(questionMatchesUnits));
+  const grammarQuestions = shuffle([...FILL_QUESTIONS, ...CASE_QUESTIONS, ...CORE_GRAMMAR_QUESTIONS].filter(questionMatchesUnits));
   const vocabularyQuestions = shuffle(allWords).map(word => {
     const wrongPool = shuffle(allWords.filter(item => item.ru !== word.ru)).slice(0, 3).map(item => item.zh);
     return { type: '选择正确单词', prompt: word.ru, answer: word.zh, options: shuffle([word.zh, ...wrongPool]), explanation: word.ru + '：' + word.zh };
