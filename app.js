@@ -416,7 +416,13 @@ function loadUnitSelection(type) {
   if (raw) {
     try {
       const arr = JSON.parse(raw);
-      if (Array.isArray(arr) && arr.length > 0) return arr;
+      if (Array.isArray(arr) && arr.length > 0) {
+        const availableIds = courseData.map(l => l.id);
+        const validIds = arr.filter(id => availableIds.includes(id));
+        const hadAllOriginalEight = [1, 2, 3, 4, 5, 6, 7, 8].every(id => validIds.includes(id));
+        if (hadAllOriginalEight && courseData.length > validIds.length) return availableIds;
+        return validIds.length > 0 ? validIds : availableIds;
+      }
     } catch (e) { /* fallthrough */ }
   }
   return courseData.map(l => l.id);
@@ -729,7 +735,28 @@ const CORE_GRAMMAR_QUESTIONS = [
   { units: [4, 8], type: '时间从句', prompt: 'Я позвоню, ___ приду домой.', answer: 'когда', options: ['когда', 'потому что', 'что', 'куда'], explanation: '表示“当……时候”用 когда。' },
   { units: [4, 8], type: '原因从句', prompt: 'Я дома, ___ сегодня холодно.', answer: 'потому что', options: ['когда', 'потому что', 'что', 'откуда'], explanation: '说明原因用 потому что。' },
   { units: [1, 8], type: '说明从句', prompt: 'Я знаю, ___ он студент.', answer: 'что', options: ['что', 'когда', 'почему', 'куда'], explanation: '说明“知道……这件事”用 что。' },
-  { units: [1, 2], type: '否定句', prompt: 'У меня нет ___（问题）.', answer: 'вопроса', options: ['вопрос', 'вопроса', 'вопросу', 'вопросом'], explanation: 'нет 后用第二格：вопроса。' }
+  { units: [1, 2], type: '否定句', prompt: 'У меня нет ___（问题）.', answer: 'вопроса', options: ['вопрос', 'вопроса', 'вопросу', 'вопросом'], explanation: 'нет 后用第二格：вопроса。' },
+  { units: [9], type: '运动动词', prompt: 'Каждый день я ___ в университет пешком.', answer: 'хожу', options: ['иду', 'хожу', 'пойду', 'приду'], explanation: '每天习惯性往返步行用不定向 ходить：я хожу。' },
+  { units: [9], type: '运动动词', prompt: 'Сейчас мы ___ на вокзал на такси.', answer: 'едем', options: ['едем', 'ездим', 'поедем', 'ездили'], explanation: '现在正朝一个方向乘车去，用 ехать：мы едем。' },
+  { units: [9], type: '方向表达', prompt: 'Поверните ___, пожалуйста.（向右转）', answer: 'направо', options: ['направо', 'справа', 'правый', 'право'], explanation: '表示动作方向“向右”用 направо。' },
+  { units: [10], type: '第二格 属格', prompt: 'У туриста нет ___（护照）.', answer: 'паспорта', options: ['паспорт', 'паспорта', 'паспорту', 'паспортом'], explanation: 'нет 后接第二格：паспорт → паспорта。' },
+  { units: [10], type: '第三格 与格', prompt: 'Администратор помогает ___（游客）.', answer: 'туристу', options: ['турист', 'туриста', 'туристу', 'туристом'], explanation: 'помогать кому? 后用第三格：туристу。' },
+  { units: [10], type: '选择正确单词', prompt: 'В гостинице нужно ___ анкету.', answer: 'заполнить', options: ['заполнить', 'заполняю', 'заполнял', 'заполненный'], explanation: 'нужно 后接动词原形：нужно заполнить。' },
+  { units: [11], type: '天气表达', prompt: 'Сегодня ___ и идёт снег.', answer: 'холодно', options: ['холодно', 'холодный', 'холодная', 'холодные'], explanation: '天气状态常用无人称副词：холодно。' },
+  { units: [11], type: '形容词格变化', prompt: 'Я покупаю ___ куртку.', answer: 'тёплую', options: ['тёплая', 'тёплую', 'тёплой', 'тёплый'], explanation: '阴性单数名词 куртка 的宾格：тёплую куртку。' },
+  { units: [11], type: '选择正确单词', prompt: 'Осенью часто идёт ___ .', answer: 'дождь', options: ['дождь', 'дождя', 'дождю', 'дождём'], explanation: '固定天气表达：идёт дождь。' },
+  { units: [12], type: '反身动词', prompt: 'Она хорошо ___ себя.', answer: 'чувствует', options: ['чувствует', 'чувствуешь', 'чувствую', 'чувствуют'], explanation: 'она 对应第三人称单数：чувствует себя。' },
+  { units: [12], type: '情态词', prompt: 'Вам ___ отдыхать.', answer: 'нужно', options: ['нужно', 'нужный', 'нужна', 'нужны'], explanation: 'нужно + 动词原形表示“需要做某事”。' },
+  { units: [12], type: '身体部位', prompt: 'У меня болит ___（头）.', answer: 'голова', options: ['голова', 'голову', 'головы', 'головой'], explanation: '在“某处疼”结构中，疼的部位作主语：болит голова。' },
+  { units: [13], type: '过去时', prompt: 'Вчера Анна ___ письмо.', answer: 'писала', options: ['писал', 'писала', 'писали', 'писать'], explanation: 'Анна 是阴性，过去时用 -ла：писала。' },
+  { units: [13], type: '复合将来时', prompt: 'Завтра они ___ готовиться к экзамену.', answer: 'будут', options: ['буду', 'будешь', 'будет', 'будут'], explanation: 'они 的 быть 将来时是 будут。' },
+  { units: [13], type: '动词体', prompt: 'Я уже ___ письмо.（已经写完）', answer: 'написал', options: ['писал', 'пишу', 'написал', 'писать'], explanation: 'уже 和“写完”强调结果，用完成体 написал。' },
+  { units: [14], type: '第五格 工具格', prompt: 'Мы идём в театр с ___（朋友们）.', answer: 'друзьями', options: ['друзья', 'друзей', 'друзьям', 'друзьями'], explanation: 'с + 第五格：с друзьями。' },
+  { units: [14], type: '第五格 工具格', prompt: 'Она занимается ___（音乐）.', answer: 'музыкой', options: ['музыка', 'музыку', 'музыкой', 'музыке'], explanation: 'заниматься чем? 后用第五格：музыкой。' },
+  { units: [14], type: '选择正确单词', prompt: 'Он хорошо играет ___ гитаре.', answer: 'на', options: ['в', 'на', 'с', 'к'], explanation: '演奏乐器常用 играть на + 前置格。' },
+  { units: [15], type: '说明从句', prompt: 'Я думаю, ___ русский язык интересный.', answer: 'что', options: ['что', 'когда', 'потому что', 'если'], explanation: '说明“我认为……这件事”用 что。' },
+  { units: [15], type: '原因从句', prompt: 'Я не иду гулять, ___ болею.', answer: 'потому что', options: ['когда', 'потому что', 'что', 'куда'], explanation: '说明原因用 потому что。' },
+  { units: [15], type: '否定句', prompt: 'У меня нет ___（时间）.', answer: 'времени', options: ['время', 'времени', 'временем', 'времена'], explanation: 'нет 后用第二格：время → времени。' }
 ];
 
 function questionMatchesUnits(question) {
