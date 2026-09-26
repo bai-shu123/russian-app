@@ -834,7 +834,28 @@ const CORE_GRAMMAR_QUESTIONS = [
   { units: [14], type: '选择正确单词', prompt: 'Он хорошо играет ___ гитаре.', answer: 'на', options: ['в', 'на', 'с', 'к'], explanation: '演奏乐器常用 играть на + 前置格。' },
   { units: [15], type: '说明从句', prompt: 'Я думаю, ___ русский язык интересный.', answer: 'что', options: ['что', 'когда', 'потому что', 'если'], explanation: '说明“我认为……这件事”用 что。' },
   { units: [15], type: '原因从句', prompt: 'Я не иду гулять, ___ болею.', answer: 'потому что', options: ['когда', 'потому что', 'что', 'куда'], explanation: '说明原因用 потому что。' },
-  { units: [15], type: '否定句', prompt: 'У меня нет ___（时间）.', answer: 'времени', options: ['время', 'времени', 'временем', 'времена'], explanation: 'нет 后用第二格：время → времени。' }
+  { units: [15], type: '否定句', prompt: 'У меня нет ___（时间）.', answer: 'времени', options: ['время', 'времени', 'временем', 'времена'], explanation: 'нет 后用第二格：время → времени。' },
+  { bookId: 'russian-road-2', units: [1], type: '动词体', prompt: 'Я весь вечер ___ новые слова.', answer: 'запоминал', options: ['запоминал', 'запомнил', 'запомню', 'запомнить'], explanation: '强调整晚的过程，用未完成体过去时：запоминал。' },
+  { bookId: 'russian-road-2', units: [1], type: '动词体', prompt: 'Наконец я ___ это правило.', answer: 'запомнил', options: ['запоминал', 'запомнил', 'запоминаю', 'запоминать'], explanation: '强调结果“记住了”，用完成体：запомнил。' },
+  { bookId: 'russian-road-2', units: [1], type: '选择正确单词', prompt: 'Завтра у нас важный ___ .', answer: 'зачёт', options: ['зачёт', 'конспект', 'пример', 'ошибка'], explanation: 'зачёт 是“结课考核”。' },
+  { bookId: 'russian-road-2', units: [2], type: '运动动词', prompt: 'Мы ___ до центра на метро.', answer: 'доехали', options: ['дошли', 'доехали', 'вошли', 'ушли'], explanation: '乘交通工具到达某地用 доехать：доехали。' },
+  { bookId: 'russian-road-2', units: [2], type: '路线表达', prompt: 'Идите ___ площадь.', answer: 'через', options: ['через', 'до', 'из', 'к'], explanation: 'через 表示“穿过”：через площадь。' },
+  { bookId: 'russian-road-2', units: [2], type: '运动动词', prompt: 'Он ___ из метро и пошёл пешком.', answer: 'вышел', options: ['вошёл', 'вышел', 'подошёл', 'заехал'], explanation: '从地铁出来用 выйти：вышел из метро。' },
+  { bookId: 'russian-road-2', units: [3], type: '间接引语', prompt: 'Анна сказала, ___ она занята.', answer: 'что', options: ['что', 'чтобы', 'если', 'когда'], explanation: '转述陈述内容用 что。' },
+  { bookId: 'russian-road-2', units: [3], type: 'чтобы 结构', prompt: 'Он попросил, ___ я позвонил вечером.', answer: 'чтобы', options: ['что', 'чтобы', 'потому что', 'где'], explanation: '表示请求内容常用 чтобы + 过去时形式。' },
+  { bookId: 'russian-road-2', units: [3], type: '选择正确单词', prompt: 'Она ___, что завтра будет тест.', answer: 'сообщила', options: ['сообщила', 'совет', 'согласие', 'мнение'], explanation: 'сообщить 表示“通知/告诉”。' },
+  { bookId: 'russian-road-2', units: [4], type: '地点与方向', prompt: 'Вчера мы были ___ музее.', answer: 'в', options: ['в', 'на', 'из', 'к'], explanation: 'где? 在博物馆里：в музее。' },
+  { bookId: 'russian-road-2', units: [4], type: '地点与方向', prompt: 'Сегодня мы идём ___ музей.', answer: 'в', options: ['в', 'из', 'о', 'с'], explanation: 'куда? 去博物馆：в музей。' },
+  { bookId: 'russian-road-2', units: [4], type: '第五格 工具格', prompt: 'Я интересуюсь русской ___ .', answer: 'культурой', options: ['культура', 'культуру', 'культурой', 'культуре'], explanation: 'интересоваться чем? 后接第五格：культурой。' },
+  { bookId: 'russian-road-2', units: [5], type: '条件句', prompt: '___ я сдам экзамен, я поеду домой.', answer: 'Если', options: ['Если', 'Что', 'Чтобы', 'Поэтому'], explanation: '条件句用 если。' },
+  { bookId: 'russian-road-2', units: [5], type: '目的从句', prompt: 'Я учу русский язык, ___ работать переводчиком.', answer: 'чтобы', options: ['что', 'чтобы', 'если', 'когда'], explanation: '表达目的“为了”用 чтобы。' },
+  { bookId: 'russian-road-2', units: [5], type: '选择正确单词', prompt: 'Перед собеседованием нужно подготовить ___ .', answer: 'резюме', options: ['резюме', 'зарплата', 'отдел', 'успех'], explanation: 'резюме 是“简历”。' },
+  { bookId: 'russian-road-2', units: [6], type: '情态表达', prompt: 'Вам ___ записаться к врачу.', answer: 'нужно', options: ['нужно', 'нужная', 'нужный', 'нужны'], explanation: 'нужно + 动词原形表示“需要”。' },
+  { bookId: 'russian-road-2', units: [6], type: '时间第四格', prompt: 'Я ждал врача ___ .', answer: 'час', options: ['час', 'часа', 'часу', 'часом'], explanation: '表示持续多久可用第四格：ждал час。' },
+  { bookId: 'russian-road-2', units: [6], type: '选择正确单词', prompt: 'Врач выписал ___ .', answer: 'рецепт', options: ['рецепт', 'очередь', 'талон', 'услуга'], explanation: 'выписать рецепт 表示“开处方”。' },
+  { bookId: 'russian-road-2', units: [7], type: '复合句', prompt: 'Я выбрал текст, ___ мы читали вчера.', answer: 'который', options: ['который', 'потому что', 'если', 'чтобы'], explanation: 'который 引导定语从句，说明“我们昨天读过的课文”。' },
+  { bookId: 'russian-road-2', units: [7], type: '间接引语', prompt: 'Она сказала, ___ тест был трудный.', answer: 'что', options: ['что', 'чтобы', 'который', 'если'], explanation: '转述陈述内容用 что。' },
+  { bookId: 'russian-road-2', units: [7], type: '选择正确单词', prompt: 'Сначала прочитайте ___ к заданию.', answer: 'инструкцию', options: ['инструкцию', 'результат', 'балл', 'уровень'], explanation: '做题前要读 инструкцию（说明）。' }
 ];
 
 function questionMatchesUnits(question) {
