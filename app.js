@@ -459,6 +459,296 @@ function markLessonViewed(lessonId) {
   }
 }
 
+// ---------- 单词查询 ----------
+function normalizeSearchText(value) {
+  return removeStressMarks(String(value || '').toLowerCase().trim());
+}
+
+function getSearchableEntries() {
+  const entries = [];
+  courseBooks.forEach(book => {
+    book.lessons.forEach(lesson => {
+      lesson.vocab.forEach(word => {
+        entries.push({ ...word, bookId: book.id, bookTitle: book.title, lessonId: lesson.id, lessonTitle: lesson.title, lesson });
+      });
+    });
+  });
+  return entries;
+}
+
+function searchWords(query) {
+  const needle = normalizeSearchText(query);
+  if (!needle) return [];
+  return getSearchableEntries()
+    .filter(entry => {
+      const ru = normalizeSearchText(entry.ru);
+      const zh = normalizeSearchText(entry.zh);
+      return ru.includes(needle) || zh.includes(needle);
+    })
+    .sort((a, b) => {
+      const aRu = normalizeSearchText(a.ru);
+      const bRu = normalizeSearchText(b.ru);
+      const aExact = aRu === needle ? 0 : 1;
+      const bExact = bRu === needle ? 0 : 1;
+      return aExact - bExact || aRu.length - bRu.length;
+    })
+    .slice(0, 12);
+}
+
+function isSingleRussianWord(value) {
+  return /^[а-яё-]+$/i.test(normalizeSearchText(value));
+}
+
+function stemForAEnding(word) {
+  return word.slice(0, -1);
+}
+
+function softAfterStem(stem) {
+  return /[гкхжчшщц]$/i.test(stem);
+}
+
+function nounCaseRows(word) {
+  const lower = normalizeSearchText(word);
+  if (!isSingleRussianWord(lower)) return null;
+  const last = lower.slice(-1);
+  const rows = [];
+  const push = (label, value) => rows.push([label, value]);
+
+  if (last === 'а') {
+    const stem = stemForAEnding(lower);
+    const gen = stem + (softAfterStem(stem) ? 'и' : 'ы');
+    push('第一格 主格', lower);
+    push('第二格 属格', gen);
+    push('第三格 与格', stem + 'е');
+    push('第四格 宾格', stem + 'у');
+    push('第五格 工具格', stem + 'ой');
+    push('第六格 前置格', stem + 'е');
+    push('复数第一格', gen);
+    push('复数第二格（基础）', stem);
+    return { title: '名词单数变格（规则基础）', rows };
+  }
+  if (last === 'я') {
+    const stem = lower.slice(0, -1);
+    push('第一格 主格', lower);
+    push('第二格 属格', stem + 'и');
+    push('第三格 与格', stem + 'е');
+    push('第四格 宾格', stem + 'ю');
+    push('第五格 工具格', stem + 'ей');
+    push('第六格 前置格', stem + 'е');
+    push('复数第一格', stem + 'и');
+    push('复数第二格（基础）', stem + 'ь');
+    return { title: '名词单数变格（规则基础）', rows };
+  }
+  if (last === 'о') {
+    const stem = lower.slice(0, -1);
+    push('第一格 主格', lower);
+    push('第二格 属格', stem + 'а');
+    push('第三格 与格', stem + 'у');
+    push('第四格 宾格', lower);
+    push('第五格 工具格', stem + 'ом');
+    push('第六格 前置格', stem + 'е');
+    push('复数第一格', stem + 'а');
+    push('复数第二格（基础）', stem);
+    return { title: '名词单数变格（规则基础）', rows };
+  }
+  if (last === 'е') {
+    const stem = lower.slice(0, -1);
+    push('第一格 主格', lower);
+    push('第二格 属格', stem + 'я');
+    push('第三格 与格', stem + 'ю');
+    push('第四格 宾格', lower);
+    push('第五格 工具格', stem + 'ем');
+    push('第六格 前置格', stem + 'е');
+    push('复数第一格', stem + 'я');
+    push('复数第二格（基础）', stem + 'й');
+    return { title: '名词单数变格（规则基础）', rows };
+  }
+  if (last === 'ь') {
+    const stem = lower.slice(0, -1);
+    push('第一格 主格', lower);
+    push('第二格 属格', stem + 'я / ' + stem + 'и');
+    push('第三格 与格', stem + 'ю / ' + stem + 'и');
+    push('第四格 宾格', lower + ' / ' + stem + 'ь');
+    push('第五格 工具格', stem + 'ем / ' + stem + 'ью');
+    push('第六格 前置格', stem + 'е / ' + stem + 'и');
+    push('复数第一格', stem + 'и');
+    push('复数第二格（基础）', stem + 'ей');
+    return { title: '名词变格（软音符号需按性别确认）', rows };
+  }
+  if (/[бвгджзклмнпрстфхцчшщ]$/i.test(last)) {
+    const stem = lower;
+    push('第一格 主格', stem);
+    push('第二格 属格', stem + 'а');
+    push('第三格 与格', stem + 'у');
+    push('第四格 宾格', stem + ' / ' + stem + 'а');
+    push('第五格 工具格', stem + 'ом');
+    push('第六格 前置格', stem + 'е');
+    push('复数第一格', stem + (softAfterStem(stem) ? 'и' : 'ы'));
+    push('复数第二格（基础）', stem + 'ов');
+    return { title: '名词单数变格（规则基础）', rows };
+  }
+  return null;
+}
+
+function adjectiveRows(word) {
+  const lower = normalizeSearchText(word);
+  if (!isSingleRussianWord(lower)) return null;
+  let stem = null;
+  let soft = false;
+  if (lower.endsWith('ый') || lower.endsWith('ой')) stem = lower.slice(0, -2);
+  if (lower.endsWith('ий')) { stem = lower.slice(0, -2); soft = true; }
+  if (lower.endsWith('ая')) stem = lower.slice(0, -2);
+  if (lower.endsWith('яя')) { stem = lower.slice(0, -2); soft = true; }
+  if (lower.endsWith('ое') || lower.endsWith('ые')) stem = lower.slice(0, -2);
+  if (lower.endsWith('ее') || lower.endsWith('ие')) { stem = lower.slice(0, -2); soft = true; }
+  if (!stem) return null;
+  const m = stem + (soft ? 'ий' : 'ый');
+  const rows = [
+    ['阳性 第一格', m],
+    ['阴性 第一格', stem + (soft ? 'яя' : 'ая')],
+    ['中性 第一格', stem + (soft ? 'ее' : 'ое')],
+    ['复数 第一格', stem + (soft ? 'ие' : 'ые')],
+    ['阳性 第二格', stem + (soft ? 'его' : 'ого')],
+    ['阳性 第三格', stem + (soft ? 'ему' : 'ому')],
+    ['阳性 第五格', stem + (soft ? 'им' : 'ым')],
+    ['阳性 第六格', stem + (soft ? 'ем' : 'ом')]
+  ];
+  return { title: '形容词变格（阳性基础形式）', rows };
+}
+
+function verbRows(word) {
+  const lower = normalizeSearchText(word);
+  if (!isSingleRussianWord(lower)) return null;
+  const reflexive = lower.endsWith('ться');
+  const infinitive = reflexive ? lower.slice(0, -4) + 'ть' : lower;
+  if (!infinitive.endsWith('ть')) return null;
+  const base = infinitive.slice(0, -2);
+  const reflexiveSuffix = reflexive ? 'ся' : '';
+  let rows = null;
+  if (infinitive.endsWith('ить')) {
+    const stem = infinitive.slice(0, -3);
+    rows = [
+      ['я', stem + 'ю' + reflexiveSuffix],
+      ['ты', stem + 'ишь' + reflexiveSuffix],
+      ['он/она', stem + 'ит' + reflexiveSuffix],
+      ['мы', stem + 'им' + reflexiveSuffix],
+      ['вы', stem + 'ите' + reflexiveSuffix],
+      ['они', stem + 'ят' + reflexiveSuffix]
+    ];
+  } else if (infinitive.endsWith('ать') || infinitive.endsWith('ять')) {
+    const stem = infinitive.slice(0, -2);
+    rows = [
+      ['я', stem + 'ю' + reflexiveSuffix],
+      ['ты', stem + 'ешь' + reflexiveSuffix],
+      ['он/она', stem + 'ет' + reflexiveSuffix],
+      ['мы', stem + 'ем' + reflexiveSuffix],
+      ['вы', stem + 'ете' + reflexiveSuffix],
+      ['они', stem + 'ют' + reflexiveSuffix]
+    ];
+  }
+  const pastBase = base.slice(0, -1);
+  const pastRows = [
+    ['过去时 阳性', pastBase + 'л' + reflexiveSuffix],
+    ['过去时 阴性', pastBase + 'ла' + reflexiveSuffix],
+    ['过去时 中性', pastBase + 'ло' + reflexiveSuffix],
+    ['过去时 复数', pastBase + 'ли' + reflexiveSuffix]
+  ];
+  return { title: rows ? '动词现在时与过去时（规则基础）' : '动词过去时（规则基础）', rows: rows ? [...rows, ...pastRows] : pastRows };
+}
+
+const pronounCaseForms = {
+  'я': [['第一格', 'я'], ['第二格', 'меня'], ['第三格', 'мне'], ['第四格', 'меня'], ['第五格', 'мной'], ['第六格', 'обо мне']],
+  'ты': [['第一格', 'ты'], ['第二格', 'тебя'], ['第三格', 'тебе'], ['第四格', 'тебя'], ['第五格', 'тобой'], ['第六格', 'о тебе']],
+  'он': [['第一格', 'он'], ['第二格', 'его'], ['第三格', 'ему'], ['第四格', 'его'], ['第五格', 'им'], ['第六格', 'о нём']],
+  'она': [['第一格', 'она'], ['第二格', 'её'], ['第三格', 'ей'], ['第四格', 'её'], ['第五格', 'ей'], ['第六格', 'о ней']],
+  'мы': [['第一格', 'мы'], ['第二格', 'нас'], ['第三格', 'нам'], ['第四格', 'нас'], ['第五格', 'нами'], ['第六格', 'о нас']],
+  'вы': [['第一格', 'вы'], ['第二格', 'вас'], ['第三格', 'вам'], ['第四格', 'вас'], ['第五格', 'вами'], ['第六格', 'о вас']],
+  'они': [['第一格', 'они'], ['第二格', 'их'], ['第三格', 'им'], ['第四格', 'их'], ['第五格', 'ими'], ['第六格', 'о них']]
+};
+
+function getFormTable(entry) {
+  const lower = normalizeSearchText(entry.ru);
+  if (pronounCaseForms[lower]) return { title: '人称代词各格', rows: pronounCaseForms[lower] };
+  if (entry.pos.includes('动词')) return verbRows(entry.ru);
+  if (entry.pos.includes('形容词')) return adjectiveRows(entry.ru);
+  if (entry.pos.includes('代词')) return adjectiveRows(entry.ru);
+  if (entry.pos.includes('名词') || entry.pos.includes('专名')) return nounCaseRows(entry.ru);
+  return null;
+}
+
+function findExamplesForEntry(entry) {
+  const target = normalizeSearchText(entry.ru).split(/[,\s/]+/).filter(Boolean)[0];
+  const examples = [];
+  if (!target) return examples;
+  entry.lesson.grammar.forEach(item => {
+    item.examples.forEach(example => {
+      if (normalizeSearchText(example.ru).includes(target)) examples.push(example);
+    });
+  });
+  entry.lesson.text.lines.forEach(line => {
+    if (normalizeSearchText(line.ru).includes(target)) examples.push(line);
+  });
+  if (examples.length === 0 && isSingleRussianWord(entry.ru)) {
+    examples.push({ ru: 'Я повторяю слово "' + entry.ru + '".', zh: '我在复习“' + entry.zh + '”这个词。' });
+  }
+  return examples.slice(0, 3);
+}
+
+function renderFormTable(formTable) {
+  if (!formTable) {
+    return '<div class="word-form-note">这个词是短语、功能词或不适合自动变格的词。请结合例句记忆。</div>';
+  }
+  return '<div class="word-form-table"><h4>' + escapeFeedbackHtml(formTable.title) + '</h4>' +
+    formTable.rows.map(row =>
+      '<div class="word-form-row"><span>' + escapeFeedbackHtml(row[0]) + '</span><strong>' + escapeFeedbackHtml(row[1]) + '</strong></div>'
+    ).join('') +
+    '<p class="word-form-note">自动生成的是规则基础形式，少数不规则词以教材和词典为准。</p></div>';
+}
+
+function renderWordSearchResults(results, query) {
+  const container = document.getElementById('wordSearchResults');
+  if (!query.trim()) {
+    container.innerHTML = '<div class="word-search-empty">输入一个词，查询结果会显示在这里。</div>';
+    return;
+  }
+  if (results.length === 0) {
+    container.innerHTML = '<div class="word-search-empty">没有找到相关单词。可以试试俄语原形、中文释义或课程里的关键词。</div>';
+    return;
+  }
+  container.innerHTML = results.map(entry => {
+    const formTable = getFormTable(entry);
+    const examples = findExamplesForEntry(entry);
+    const exampleHtml = examples.map(example =>
+      '<li><span class="ex-ru">' + escapeFeedbackHtml(example.ru) + '</span><span class="ex-zh">' + escapeFeedbackHtml(example.zh) + '</span></li>'
+    ).join('');
+    return '<article class="word-result-card">' +
+      '<div class="word-result-top"><div><h3>' + escapeFeedbackHtml(addStressMarks(entry.ru)) + '</h3><p>' + escapeFeedbackHtml(entry.zh) + '</p></div>' +
+      '<button class="mini-speak-btn word-result-speak" data-word="' + escapeFeedbackHtml(entry.ru) + '">🔊</button></div>' +
+      '<div class="word-result-meta"><span>' + escapeFeedbackHtml(entry.pos) + '</span><span>' + escapeFeedbackHtml(entry.bookTitle) + ' · 第 ' + entry.lessonId + ' 课</span></div>' +
+      renderFormTable(formTable) +
+      '<div class="word-examples"><h4>例句</h4><ul class="grammar-examples">' + exampleHtml + '</ul></div>' +
+      '</article>';
+  }).join('');
+  container.querySelectorAll('.word-result-speak').forEach(btn => {
+    btn.addEventListener('click', () => speak(btn.dataset.word));
+  });
+}
+
+function runWordSearch() {
+  const input = document.getElementById('wordSearchInput');
+  const query = input.value;
+  renderWordSearchResults(searchWords(query), query);
+}
+
+document.getElementById('wordSearchBtn').addEventListener('click', runWordSearch);
+document.getElementById('wordSearchInput').addEventListener('keydown', event => {
+  if (event.key === 'Enter') runWordSearch();
+});
+document.getElementById('wordSearchInput').addEventListener('input', event => {
+  const query = event.target.value.trim();
+  if (query.length === 0 || query.length >= 2) renderWordSearchResults(searchWords(query), query);
+});
+
 // ---------- 字母表 ----------
 function renderAlphabet() {
   const grid = document.getElementById('alphabetGrid');

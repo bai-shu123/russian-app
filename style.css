@@ -281,6 +281,174 @@ main {
   margin-top: 10px;
 }
 
+/* ==================== 单词查询 ==================== */
+.word-search-panel {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.word-search-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.word-search-heading h2 {
+  margin: 0 0 5px;
+  color: var(--blue);
+  font-size: 1.25rem;
+}
+
+.word-search-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.word-search-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.word-search-row input {
+  width: 100%;
+  border: 1px solid #dfe3ea;
+  border-radius: 10px;
+  padding: 11px 13px;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.word-search-row input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0,57,166,0.08);
+}
+
+.word-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.word-search-empty {
+  border: 1px dashed #d9dee8;
+  border-radius: 10px;
+  color: var(--muted);
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.word-result-card {
+  border: 1px solid #edf0f4;
+  border-radius: 12px;
+  padding: 14px;
+  background: #fff;
+}
+
+.word-result-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.word-result-top h3 {
+  margin: 0 0 4px;
+  color: var(--blue);
+  font-size: 1.25rem;
+}
+
+.word-result-top p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.word-result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+
+.word-result-meta span {
+  border-radius: 999px;
+  background: #f0f3f8;
+  color: var(--blue);
+  padding: 5px 9px;
+  font-size: 0.74rem;
+}
+
+.word-form-table {
+  border: 1px solid #eef1f6;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 10px 0 12px;
+}
+
+.word-form-table h4,
+.word-examples h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.word-form-table h4 {
+  background: #f7f8fb;
+  padding: 9px 11px;
+}
+
+.word-form-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.65fr) 1fr;
+  gap: 10px;
+  padding: 8px 11px;
+  border-top: 1px solid #eef1f6;
+  align-items: center;
+}
+
+.word-form-row span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.word-form-row strong {
+  color: var(--blue);
+  font-size: 0.94rem;
+  overflow-wrap: anywhere;
+}
+
+.word-form-note {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  padding: 8px 11px;
+  margin: 0;
+}
+
+.word-examples {
+  margin-top: 12px;
+}
+
+.word-examples h4 {
+  margin-bottom: 8px;
+}
+
+.word-result-speak {
+  flex-shrink: 0;
+}
+
 .quiz-progress {
   display: flex;
   justify-content: space-between;
@@ -948,6 +1116,13 @@ footer {
 }
 
 @media (max-width: 600px) {
+  .word-search-row,
+  .word-form-row {
+    grid-template-columns: 1fr;
+  }
+  .word-search-row button {
+    width: 100%;
+  }
   .book-selector-panel {
     flex-direction: column;
     align-items: stretch;

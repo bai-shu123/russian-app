@@ -95,6 +95,7 @@
       <button class="tab-btn active" data-tab="course">课程</button>
       <button class="tab-btn" data-tab="alphabet">字母表</button>
       <button class="tab-btn" data-tab="vocab">词汇卡片</button>
+      <button class="tab-btn" data-tab="wordSearch">单词查询</button>
       <button class="tab-btn" data-tab="quiz">测验</button>
       <button class="tab-btn" data-tab="progress">我的进度</button>
       <a class="grammar-nav-link" href="grammar.html">变位与变格</a>
@@ -165,6 +166,26 @@
             <button id="nextCardBtn">下一个 ➡</button>
           </div>
           <p class="hint" id="flashcardHint">点击一次查看中文，再点击一次查看俄语手写体</p>
+        </div>
+      </section>
+
+      <!-- 单词查询 -->
+      <section id="wordSearch" class="tab-panel">
+        <div class="word-search-panel">
+          <div class="word-search-heading">
+            <div>
+              <span class="book-selector-kicker">全册词库</span>
+              <h2>单词查询</h2>
+              <p>输入俄语单词或中文释义，查看意思、变格/变位形式和例句。</p>
+            </div>
+          </div>
+          <div class="word-search-row">
+            <input id="wordSearchInput" type="search" placeholder="例如：книга、идти、家庭、考试" autocomplete="off" />
+            <button id="wordSearchBtn" class="auth-primary-btn">查询</button>
+          </div>
+          <div id="wordSearchResults" class="word-search-results">
+            <div class="word-search-empty">输入一个词，查询结果会显示在这里。</div>
+          </div>
         </div>
       </section>
 
