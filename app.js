@@ -460,6 +460,10 @@ function markLessonViewed(lessonId) {
 }
 
 // ---------- 单词查询 ----------
+let externalDictionaryPromise = null;
+let externalDictionaryEntries = null;
+let externalDictionaryMeta = null;
+
 function normalizeSearchText(value) {
   return removeStressMarks(String(value || '').toLowerCase().trim());
 }
@@ -493,6 +497,70 @@ function searchWords(query) {
       return aExact - bExact || aRu.length - bRu.length;
     })
     .slice(0, 12);
+}
+
+async function loadExternalDictionary() {
+  if (externalDictionaryEntries) return externalDictionaryEntries;
+  if (!externalDictionaryPromise) {
+    externalDictionaryPromise = Promise.all([
+      fetch('assets/dictionary/ru-zh-dictionary.json').then(response => {
+        if (!response.ok) throw new Error('大型字典加载失败');
+        return response.json();
+      }),
+      fetch('assets/dictionary/ru-zh-dictionary-meta.json').then(response => response.ok ? response.json() : null)
+    ]).then(([entries, meta]) => {
+      externalDictionaryMeta = meta;
+      externalDictionaryEntries = entries.map(entry => ({
+        ru: entry.ru,
+        zh: Array.isArray(entry.zh) ? entry.zh.join('；') : String(entry.zh || ''),
+        pos: mapDictionaryPos(entry.pos),
+        source: 'FreeDict',
+        dictionaryZh: entry.zh || []
+      }));
+      return externalDictionaryEntries;
+    });
+  }
+  return externalDictionaryPromise;
+}
+
+function mapDictionaryPos(posValues) {
+  const labels = {
+    n: '名词',
+    pn: '专名',
+    v: '动词',
+    adj: '形容词',
+    adv: '副词'
+  };
+  const values = Array.isArray(posValues) ? posValues : [];
+  return values.map(value => labels[value] || value).filter(Boolean).join(' / ') || '词条';
+}
+
+function searchExternalDictionary(entries, query, limit) {
+  const needle = normalizeSearchText(query);
+  if (!needle) return [];
+  const exact = [];
+  const prefix = [];
+  const contains = [];
+  const zhMatches = [];
+  for (const entry of entries) {
+    const ru = normalizeSearchText(entry.ru);
+    const zh = normalizeSearchText(entry.zh);
+    if (ru === needle) exact.push(entry);
+    else if (ru.startsWith(needle)) prefix.push(entry);
+    else if (ru.includes(needle)) contains.push(entry);
+    else if (zh.includes(needle)) zhMatches.push(entry);
+    if (exact.length >= limit) break;
+  }
+  return [...exact, ...prefix, ...contains, ...zhMatches]
+    .filter((entry, index, list) => list.findIndex(item => normalizeSearchText(item.ru) === normalizeSearchText(entry.ru)) === index)
+    .slice(0, limit);
+}
+
+async function searchWordsLarge(query) {
+  const courseResults = searchWords(query).map(entry => ({ ...entry, source: 'course' }));
+  const dictionary = await loadExternalDictionary();
+  const dictionaryResults = searchExternalDictionary(dictionary, query, Math.max(0, 18 - courseResults.length));
+  return [...courseResults, ...dictionaryResults].slice(0, 18);
 }
 
 function isSingleRussianWord(value) {
@@ -680,14 +748,16 @@ function findExamplesForEntry(entry) {
   const target = normalizeSearchText(entry.ru).split(/[,\s/]+/).filter(Boolean)[0];
   const examples = [];
   if (!target) return examples;
-  entry.lesson.grammar.forEach(item => {
-    item.examples.forEach(example => {
-      if (normalizeSearchText(example.ru).includes(target)) examples.push(example);
+  if (entry.lesson) {
+    entry.lesson.grammar.forEach(item => {
+      item.examples.forEach(example => {
+        if (normalizeSearchText(example.ru).includes(target)) examples.push(example);
+      });
     });
-  });
-  entry.lesson.text.lines.forEach(line => {
-    if (normalizeSearchText(line.ru).includes(target)) examples.push(line);
-  });
+    entry.lesson.text.lines.forEach(line => {
+      if (normalizeSearchText(line.ru).includes(target)) examples.push(line);
+    });
+  }
   if (examples.length === 0 && isSingleRussianWord(entry.ru)) {
     examples.push({ ru: 'Я повторяю слово "' + entry.ru + '".', zh: '我在复习“' + entry.zh + '”这个词。' });
   }
@@ -721,23 +791,44 @@ function renderWordSearchResults(results, query) {
     const exampleHtml = examples.map(example =>
       '<li><span class="ex-ru">' + escapeFeedbackHtml(example.ru) + '</span><span class="ex-zh">' + escapeFeedbackHtml(example.zh) + '</span></li>'
     ).join('');
+    const sourceMeta = entry.lesson
+      ? escapeFeedbackHtml(entry.bookTitle) + ' · 第 ' + entry.lessonId + ' 课'
+      : '大型字典 · FreeDict';
     return '<article class="word-result-card">' +
       '<div class="word-result-top"><div><h3>' + escapeFeedbackHtml(addStressMarks(entry.ru)) + '</h3><p>' + escapeFeedbackHtml(entry.zh) + '</p></div>' +
       '<button class="mini-speak-btn word-result-speak" data-word="' + escapeFeedbackHtml(entry.ru) + '">🔊</button></div>' +
-      '<div class="word-result-meta"><span>' + escapeFeedbackHtml(entry.pos) + '</span><span>' + escapeFeedbackHtml(entry.bookTitle) + ' · 第 ' + entry.lessonId + ' 课</span></div>' +
+      '<div class="word-result-meta"><span>' + escapeFeedbackHtml(entry.pos) + '</span><span>' + sourceMeta + '</span></div>' +
       renderFormTable(formTable) +
       '<div class="word-examples"><h4>例句</h4><ul class="grammar-examples">' + exampleHtml + '</ul></div>' +
       '</article>';
   }).join('');
+  if (externalDictionaryMeta) {
+    container.innerHTML += '<p class="dictionary-source-note">大型字典数据来源：FreeDict/WikDict，基于 Wiktionary/DBnary，许可协议 CC BY-SA 3.0。当前离线俄语索引约 ' + externalDictionaryMeta.russianEntries.toLocaleString('zh-CN') + ' 条。</p>';
+  }
   container.querySelectorAll('.word-result-speak').forEach(btn => {
     btn.addEventListener('click', () => speak(btn.dataset.word));
   });
 }
 
-function runWordSearch() {
+function renderWordSearchLoading() {
+  document.getElementById('wordSearchResults').innerHTML = '<div class="word-search-empty">正在加载大型字典，请稍候...</div>';
+}
+
+async function runWordSearch() {
   const input = document.getElementById('wordSearchInput');
   const query = input.value;
-  renderWordSearchResults(searchWords(query), query);
+  if (!query.trim()) {
+    renderWordSearchResults([], query);
+    return;
+  }
+  renderWordSearchLoading();
+  try {
+    renderWordSearchResults(await searchWordsLarge(query), query);
+  } catch (error) {
+    const courseResults = searchWords(query);
+    renderWordSearchResults(courseResults, query);
+    document.getElementById('wordSearchResults').innerHTML += '<div class="word-search-empty">大型字典暂时加载失败，当前只显示课程词库结果。</div>';
+  }
 }
 
 document.getElementById('wordSearchBtn').addEventListener('click', runWordSearch);
@@ -746,7 +837,8 @@ document.getElementById('wordSearchInput').addEventListener('keydown', event => 
 });
 document.getElementById('wordSearchInput').addEventListener('input', event => {
   const query = event.target.value.trim();
-  if (query.length === 0 || query.length >= 2) renderWordSearchResults(searchWords(query), query);
+  if (query.length === 0) renderWordSearchResults([], query);
+  if (query.length >= 2) runWordSearch();
 });
 
 // ---------- 字母表 ----------

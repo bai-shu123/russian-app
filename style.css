@@ -449,6 +449,14 @@ main {
   flex-shrink: 0;
 }
 
+.dictionary-source-note {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  margin: 2px 0 0;
+  text-align: center;
+}
+
 .quiz-progress {
   display: flex;
   justify-content: space-between;
