@@ -131,6 +131,15 @@ async function listProfiles() {
   return data || [];
 }
 
+async function listLearningProgress() {
+  const { data, error } = await supabaseClient
+    .from('learning_progress')
+    .select('*')
+    .order('updated_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
 window.Auth = {
   supabase: supabaseClient,
   currentUserId,
@@ -142,5 +151,6 @@ window.Auth = {
   logoutUser,
   requestPasswordReset,
   resetPassword,
-  listProfiles
+  listProfiles,
+  listLearningProgress
 };

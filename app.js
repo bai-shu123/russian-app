@@ -183,6 +183,8 @@ document.getElementById('resetSubmitBtn').addEventListener('click', async () => 
 });
 // ---- 登出 ----
 document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await updateLearningPresence(false);
+  stopLearningPresence();
   await window.Auth.logoutUser();
   document.getElementById('mainApp').classList.add('hidden');
   document.getElementById('authOverlay').classList.remove('hidden');
@@ -195,6 +197,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
 let currentUsername = null;
 let currentRole = null;
 let progress = null;
+let presenceTimer = null;
 
 function progressKey(username) {
   return 'ru_learning_progress_v1::' + username.toLowerCase();
@@ -216,6 +219,52 @@ function loadProgress(username) {
 
 function saveProgress(p) {
   localStorage.setItem(progressKey(currentUsername), JSON.stringify(p));
+  syncLearningProgress();
+}
+
+function learningProgressPayload(isOnline = true) {
+  return {
+    user_id: window.Auth.currentUserId,
+    username: currentUsername,
+    streak: Number(progress && progress.streak) || 0,
+    quizzes_completed: Number(progress && progress.quizzesCompleted) || 0,
+    best_score: Number(progress && progress.bestScore) || 0,
+    words_learned_count: progress && Array.isArray(progress.wordsLearned) ? progress.wordsLearned.length : 0,
+    lessons_viewed_count: progress && Array.isArray(progress.lessonsViewed) ? progress.lessonsViewed.length : 0,
+    last_visit: progress && progress.lastVisit ? progress.lastVisit : null,
+    last_seen_at: new Date().toISOString(),
+    is_online: isOnline,
+    current_book_id: currentBookId,
+    updated_at: new Date().toISOString()
+  };
+}
+
+async function updateLearningPresence(isOnline = true) {
+  if (!currentUsername || !window.Auth.currentUserId || !progress) return;
+  try {
+    await window.Auth.supabase
+      .from('learning_progress')
+      .upsert(learningProgressPayload(isOnline), { onConflict: 'user_id' });
+  } catch (error) {
+    // The table may not exist until the Supabase migration is run.
+  }
+}
+
+function syncLearningProgress() {
+  updateLearningPresence(true);
+}
+
+function startLearningPresence() {
+  stopLearningPresence();
+  updateLearningPresence(true);
+  presenceTimer = window.setInterval(() => updateLearningPresence(true), 60000);
+}
+
+function stopLearningPresence() {
+  if (presenceTimer) {
+    window.clearInterval(presenceTimer);
+    presenceTimer = null;
+  }
 }
 
 function updateStreak(p) {
@@ -253,6 +302,10 @@ function markWordLearned(ru) {
 const FEEDBACK_KEY = 'ru_learning_feedback_v1';
 function escapeFeedbackHtml(value) { return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;'); }
 function formatFeedbackTime(timestamp) { return new Date(timestamp).toLocaleString('zh-CN', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+function formatAdminTime(timestamp) {
+  if (!timestamp) return '暂无记录';
+  return new Date(timestamp).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 async function loadFeedback() {
   const { data, error } = await window.Auth.supabase.from('feedback').select('*').order('created_at', { ascending: false });
   if (error) throw error;
@@ -336,6 +389,7 @@ function setCourseBook(bookId, persist = true) {
   initVocabUnitSelector();
   refreshVocabWords();
   initQuizUnitSelector();
+  syncLearningProgress();
 }
 
 function loadCourseBookSelection() {
@@ -1326,6 +1380,7 @@ document.getElementById('resetProgressBtn').addEventListener('click', () => {
   if (confirm('确定要重置所有学习记录吗？此操作不可恢复。')) {
     localStorage.removeItem(progressKey(currentUsername));
     progress = updateStreak(loadProgress(currentUsername));
+    syncLearningProgress();
     refreshHeaderAndStats();
   }
 });
@@ -1347,26 +1402,49 @@ async function renderAdminPanel() {
   listEl.innerHTML = '<p class="section-desc">正在加载账号...</p>';
   feedbackEl.innerHTML = '<p class="section-desc">正在加载反馈...</p>';
   try {
-    const [users, feedbackItems] = await Promise.all([
+    const [users, feedbackItems, progressResult] = await Promise.all([
       window.Auth.listProfiles(),
-      loadFeedback()
+      loadFeedback(),
+      window.Auth.listLearningProgress().then(data => ({ ok: true, data })).catch(error => ({ ok: false, error, data: [] }))
     ]);
+    const progressByUser = new Map(progressResult.data.map(item => [item.user_id, item]));
+    const now = Date.now();
+    const isUserOnline = item => Boolean(item && item.is_online && item.last_seen_at && now - new Date(item.last_seen_at).getTime() < 120000);
+    const onlineCount = users.filter(user => isUserOnline(progressByUser.get(user.id))).length;
     const pendingCount = feedbackItems.filter(item => !item.reply).length;
     document.getElementById('adminUserTotal').textContent = users.length;
+    document.getElementById('adminOnlineTotal').textContent = onlineCount;
     document.getElementById('adminFeedbackTotal').textContent = feedbackItems.length;
     document.getElementById('adminPendingTotal').textContent = pendingCount;
     document.getElementById('adminUserCount').textContent = users.length + ' 个账号';
     document.getElementById('adminFeedbackCount').textContent = pendingCount + ' 条待处理';
     listEl.innerHTML = users.length ? users.map(u => {
       const createdDate = new Date(u.created_at).toLocaleString('zh-CN');
+      const learning = progressByUser.get(u.id);
+      const online = isUserOnline(learning);
+      const bookTitle = learning && learning.current_book_id
+        ? (courseBooks.find(book => book.id === learning.current_book_id) || {}).title || learning.current_book_id
+        : '暂无记录';
       return '<div class="admin-user-card">' +
         '<div class="row"><span class="label">用户名</span><span>' + escapeFeedbackHtml(u.username) + (u.role === 'admin' ? '<span class="admin-badge role-admin">管理员</span>' : '') + '</span></div>' +
         (u.email ? '<div class="row"><span class="label">注册邮箱</span><span>' + escapeFeedbackHtml(u.email) + '</span></div>' : '') +
         '<div class="row"><span class="label">账号 ID</span><span>' + escapeFeedbackHtml(u.id.slice(0, 8)) + '...</span></div>' +
         '<div class="row"><span class="label">账号角色</span><span>' + (u.role === 'admin' ? '管理员' : '普通用户') + '</span></div>' +
-        '<div class="row"><span class="label">状态</span><span><span class="admin-badge verified">正常</span></span></div>' +
+        '<div class="row"><span class="label">在线状态</span><span><span class="admin-badge ' + (online ? 'online' : 'offline') + '">' + (online ? '在线' : '离线') + '</span></span></div>' +
+        '<div class="admin-learning-grid">' +
+        '<div><strong>' + (learning ? learning.streak : 0) + '</strong><span>连续天数</span></div>' +
+        '<div><strong>' + (learning ? learning.quizzes_completed : 0) + '</strong><span>测验次数</span></div>' +
+        '<div><strong>' + (learning ? learning.best_score : 0) + '</strong><span>最佳成绩</span></div>' +
+        '<div><strong>' + (learning ? learning.words_learned_count : 0) + '</strong><span>已学词汇</span></div>' +
+        '<div><strong>' + (learning ? learning.lessons_viewed_count : 0) + '</strong><span>看过课程</span></div>' +
+        '</div>' +
+        '<div class="row"><span class="label">当前教材</span><span>' + escapeFeedbackHtml(bookTitle) + '</span></div>' +
+        '<div class="row"><span class="label">最后活跃</span><span>' + formatAdminTime(learning && learning.last_seen_at) + '</span></div>' +
         '<div class="row"><span class="label">注册时间</span><span>' + createdDate + '</span></div></div>';
     }).join('') : '<p class="section-desc">暂无注册账号</p>';
+    if (!progressResult.ok) {
+      listEl.innerHTML += '<p class="admin-warning">学习情况表尚未启用：请在 Supabase SQL Editor 执行最新版 supabase-schema.sql 或 admin-setup.sql。</p>';
+    }
     feedbackEl.innerHTML = feedbackItems.length
       ? feedbackItems.map(item => renderFeedbackCard(item, true)).join('')
       : '<div class="feedback-empty"><strong>暂时没有用户反馈</strong><span>用户提交的留言会显示在这里。</span></div>';
@@ -1409,6 +1487,7 @@ async function enterApp(username, role) {
   await renderFeedback();
   renderAlphabet();
   refreshHeaderAndStats();
+  startLearningPresence();
 }
 
 // ---------- 初始化 ----------

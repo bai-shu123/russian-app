@@ -32,8 +32,24 @@ create table if not exists public.feedback (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.learning_progress (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  username text not null,
+  streak integer not null default 0,
+  quizzes_completed integer not null default 0,
+  best_score integer not null default 0,
+  words_learned_count integer not null default 0,
+  lessons_viewed_count integer not null default 0,
+  last_visit text,
+  last_seen_at timestamptz,
+  is_online boolean not null default false,
+  current_book_id text,
+  updated_at timestamptz not null default now()
+);
+
 alter table public.profiles enable row level security;
 alter table public.feedback enable row level security;
+alter table public.learning_progress enable row level security;
 
 create or replace function public.is_admin()
 returns boolean
@@ -71,6 +87,22 @@ create policy "feedback admin update" on public.feedback
 for update to authenticated
 using (public.is_admin())
 with check (public.is_admin());
+
+drop policy if exists "learning progress own or admin read" on public.learning_progress;
+create policy "learning progress own or admin read" on public.learning_progress
+for select to authenticated
+using (user_id = (select auth.uid()) or public.is_admin());
+
+drop policy if exists "learning progress own insert" on public.learning_progress;
+create policy "learning progress own insert" on public.learning_progress
+for insert to authenticated
+with check (user_id = (select auth.uid()));
+
+drop policy if exists "learning progress own update" on public.learning_progress;
+create policy "learning progress own update" on public.learning_progress
+for update to authenticated
+using (user_id = (select auth.uid()))
+with check (user_id = (select auth.uid()));
 
 create or replace function public.handle_new_user()
 returns trigger
