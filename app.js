@@ -518,6 +518,8 @@ let externalDictionaryPromise = null;
 let externalDictionaryEntries = null;
 let externalDictionaryMeta = null;
 let externalDictionaryFormIndex = null;
+let externalDictionaryFormsByLemma = null;
+let cachedCourseExampleCorpus = null;
 
 function normalizeSearchText(value) {
   return removeStressMarks(String(value || '').toLowerCase().trim());
@@ -567,6 +569,13 @@ async function loadExternalDictionary() {
     ]).then(([entries, meta, formIndex]) => {
       externalDictionaryMeta = meta;
       externalDictionaryFormIndex = formIndex || {};
+      externalDictionaryFormsByLemma = new Map();
+      Object.entries(externalDictionaryFormIndex).forEach(([form, lemmas]) => {
+        (Array.isArray(lemmas) ? lemmas : []).forEach(lemma => {
+          if (!externalDictionaryFormsByLemma.has(lemma)) externalDictionaryFormsByLemma.set(lemma, new Set());
+          externalDictionaryFormsByLemma.get(lemma).add(form);
+        });
+      });
       externalDictionaryEntries = entries.map(entry => ({
         ru: entry.ru,
         zh: Array.isArray(entry.zh) ? entry.zh.join('；') : String(entry.zh || ''),
@@ -845,8 +854,155 @@ function getFormTable(entry) {
   return null;
 }
 
+const dictionaryExampleBank = {
+  'книга': [
+    ['Это интересная книга.', '这是一本有趣的书。'],
+    ['Я читаю книгу вечером.', '我晚上读书。']
+  ],
+  'дом': [
+    ['Я живу в этом доме.', '我住在这所房子里。'],
+    ['После работы я иду домой.', '下班后我回家。']
+  ],
+  'работа': [
+    ['У меня сегодня много работы.', '我今天有很多工作。'],
+    ['Я ищу новую работу.', '我在找新工作。']
+  ],
+  'идти': [
+    ['Я иду в университет.', '我去大学。'],
+    ['Мы идём домой вместе.', '我们一起回家。']
+  ],
+  'делать': [
+    ['Что ты делаешь?', '你在做什么？'],
+    ['Я делаю домашнее задание.', '我在做家庭作业。']
+  ],
+  'говорить': [
+    ['Я говорю по-русски.', '我说俄语。'],
+    ['Она говорит очень быстро.', '她说得很快。']
+  ],
+  'учиться': [
+    ['Я учусь в университете.', '我在大学学习。'],
+    ['Мы учимся каждый день.', '我们每天学习。']
+  ],
+  'читать': [
+    ['Я читаю русский текст.', '我在读俄语课文。'],
+    ['Студенты читают книгу.', '学生们在读书。']
+  ],
+  'писать': [
+    ['Я пишу письмо другу.', '我给朋友写信。'],
+    ['Она пишет новые слова в тетради.', '她把新单词写在练习本里。']
+  ],
+  'слушать': [
+    ['Я слушаю преподавателя.', '我在听老师讲课。'],
+    ['Мы слушаем русскую речь.', '我们听俄语讲话。']
+  ],
+  'понимать': [
+    ['Я понимаю этот вопрос.', '我明白这个问题。'],
+    ['Вы понимаете по-русски?', '您能听懂俄语吗？']
+  ],
+  'знать': [
+    ['Я знаю этот город.', '我知道这座城市。'],
+    ['Она хорошо знает русский язык.', '她很熟悉俄语。']
+  ],
+  'хотеть': [
+    ['Я хочу пить.', '我想喝水。'],
+    ['Мы хотим поехать в Москву.', '我们想去莫斯科。']
+  ],
+  'мочь': [
+    ['Я могу помочь вам.', '我可以帮助您。'],
+    ['Ты можешь повторить?', '你可以再重复一遍吗？']
+  ],
+  'любить': [
+    ['Я люблю читать.', '我喜欢阅读。'],
+    ['Она любит русский язык.', '她喜欢俄语。']
+  ],
+  'жить': [
+    ['Я живу в Пекине.', '我住在北京。'],
+    ['Моя семья живёт в России.', '我的家人住在俄罗斯。']
+  ],
+  'купить': [
+    ['Я хочу купить хлеб.', '我想买面包。'],
+    ['Где можно купить билет?', '哪里可以买票？']
+  ],
+  'ждать': [
+    ['Я жду автобуса.', '我在等公交车。'],
+    ['Мы ждём врача.', '我们在等医生。']
+  ],
+  'приходить': [
+    ['Я прихожу на работу в девять часов.', '我九点上班。'],
+    ['Он часто приходит поздно.', '他经常来得很晚。']
+  ],
+  'ехать': [
+    ['Я еду в центр на автобусе.', '我坐公交车去市中心。'],
+    ['Мы едем домой.', '我们正在回家。']
+  ],
+  'город': [
+    ['Москва — большой город.', '莫斯科是一座大城市。'],
+    ['Я хорошо знаю этот город.', '我很了解这座城市。']
+  ],
+  'время': [
+    ['У меня нет времени.', '我没有时间。'],
+    ['Который час?', '现在几点？']
+  ],
+  'день': [
+    ['Сегодня хороший день.', '今天是美好的一天。'],
+    ['Я работаю весь день.', '我工作一整天。']
+  ],
+  'вода': [
+    ['Я хочу пить воду.', '我想喝水。'],
+    ['Стакан воды, пожалуйста.', '请给我一杯水。']
+  ],
+  'семья': [
+    ['Моя семья живёт в Китае.', '我的家人住在中国。'],
+    ['У меня большая семья.', '我有一个大家庭。']
+  ],
+  'друг': [
+    ['Это мой друг.', '这是我的朋友。'],
+    ['Я разговариваю с другом.', '我和朋友聊天。']
+  ],
+  'студент': [
+    ['Я студент.', '我是学生。'],
+    ['Студенты читают текст.', '学生们阅读课文。']
+  ],
+  'школа': [
+    ['Дети идут в школу.', '孩子们去学校。'],
+    ['Моя школа находится рядом с домом.', '我的学校在家附近。']
+  ],
+  'университет': [
+    ['Я учусь в университете.', '我在大学学习。'],
+    ['Университет находится в центре города.', '大学在市中心。']
+  ],
+  'язык': [
+    ['Я изучаю русский язык.', '我学习俄语。'],
+    ['Русский язык очень интересный.', '俄语很有意思。']
+  ]
+};
+
+function courseExampleCorpus() {
+  if (cachedCourseExampleCorpus) return cachedCourseExampleCorpus;
+  const examples = [];
+  courseBooks.forEach(book => {
+    book.lessons.forEach(lesson => {
+      lesson.grammar.forEach(section => {
+        section.examples.forEach(example => examples.push(example));
+      });
+      lesson.text.lines.forEach(line => examples.push(line));
+    });
+  });
+  cachedCourseExampleCorpus = examples;
+  return cachedCourseExampleCorpus;
+}
+
+function russianTextContainsForm(text, form) {
+  const normalizedText = normalizeSearchText(text);
+  const normalizedForm = normalizeSearchText(form);
+  if (!normalizedText || !normalizedForm) return false;
+  if (normalizedForm.includes(' ')) return normalizedText.includes(normalizedForm);
+  return new RegExp('(^|[^а-яё])' + normalizedForm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^а-яё]|$)', 'i').test(normalizedText);
+}
+
 function findExamplesForEntry(entry) {
-  const target = normalizeSearchText(entry.ru).split(/[,\s/]+/).filter(Boolean)[0];
+  const lemma = normalizeSearchText(entry.ru);
+  const target = lemma.split(/[,\s/]+/).filter(Boolean)[0];
   const examples = [];
   if (!target) return examples;
   if (entry.lesson) {
@@ -860,9 +1016,19 @@ function findExamplesForEntry(entry) {
     });
   }
   if (examples.length === 0 && isSingleRussianWord(entry.ru)) {
-    examples.push({ ru: 'Я повторяю слово "' + entry.ru + '".', zh: '我在复习“' + entry.zh + '”这个词。' });
+    const forms = new Set([lemma]);
+    const indexedForms = externalDictionaryFormsByLemma && externalDictionaryFormsByLemma.get(lemma);
+    if (indexedForms) indexedForms.forEach(form => forms.add(form));
+    courseExampleCorpus().forEach(example => {
+      if ([...forms].some(form => russianTextContainsForm(example.ru, form))) examples.push(example);
+    });
   }
-  return examples.slice(0, 3);
+  if (examples.length === 0 && dictionaryExampleBank[lemma]) {
+    dictionaryExampleBank[lemma].forEach(([ru, zh]) => examples.push({ ru, zh }));
+  }
+  return examples
+    .filter((example, index, list) => list.findIndex(item => item.ru === example.ru) === index)
+    .slice(0, 3);
 }
 
 function renderFormTable(formTable) {
@@ -892,6 +1058,9 @@ function renderWordSearchResults(results, query) {
     const exampleHtml = examples.map(example =>
       '<li><span class="ex-ru">' + escapeFeedbackHtml(example.ru) + '</span><span class="ex-zh">' + escapeFeedbackHtml(example.zh) + '</span></li>'
     ).join('');
+    const examplesSection = examples.length > 0
+      ? '<div class="word-examples"><h4>例句</h4><ul class="grammar-examples">' + exampleHtml + '</ul></div>'
+      : '<div class="word-examples word-examples-empty"><h4>例句</h4><p class="word-form-note">当前暂无可用例句。</p></div>';
     const sourceMeta = entry.lesson
       ? escapeFeedbackHtml(entry.bookTitle) + ' · 第 ' + entry.lessonId + ' 课'
       : '大型字典 · ' + escapeFeedbackHtml(entry.source || 'WikDict');
@@ -900,7 +1069,7 @@ function renderWordSearchResults(results, query) {
       '<button class="mini-speak-btn word-result-speak" data-word="' + escapeFeedbackHtml(entry.ru) + '">🔊</button></div>' +
       '<div class="word-result-meta"><span>' + escapeFeedbackHtml(entry.pos) + '</span><span>' + sourceMeta + '</span></div>' +
       renderFormTable(formTable) +
-      '<div class="word-examples"><h4>例句</h4><ul class="grammar-examples">' + exampleHtml + '</ul></div>' +
+      examplesSection +
       '</article>';
   }).join('');
   if (externalDictionaryMeta) {
