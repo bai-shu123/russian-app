@@ -44,7 +44,7 @@ function addStressMarks(text) {
 }
 
 function removeStressMarks(text) {
-  return String(text).replace(/\u0301/g, '');
+  return String(text).replace(/[\u0301'’`]/g, '');
 }
 // 登录 / 注册 / 邮箱验证 / 找回密码 逻辑
 // ===================================================================
@@ -517,6 +517,7 @@ function markLessonViewed(lessonId) {
 let externalDictionaryPromise = null;
 let externalDictionaryEntries = null;
 let externalDictionaryMeta = null;
+let externalDictionaryFormIndex = null;
 
 function normalizeSearchText(value) {
   return removeStressMarks(String(value || '').toLowerCase().trim());
@@ -561,16 +562,21 @@ async function loadExternalDictionary() {
         if (!response.ok) throw new Error('大型字典加载失败');
         return response.json();
       }),
-      fetch('assets/dictionary/ru-zh-dictionary-meta.json').then(response => response.ok ? response.json() : null)
-    ]).then(([entries, meta]) => {
+      fetch('assets/dictionary/ru-zh-dictionary-meta.json').then(response => response.ok ? response.json() : null),
+      fetch('assets/dictionary/ru-form-index.json').then(response => response.ok ? response.json() : {})
+    ]).then(([entries, meta, formIndex]) => {
       externalDictionaryMeta = meta;
+      externalDictionaryFormIndex = formIndex || {};
       externalDictionaryEntries = entries.map(entry => ({
         ru: entry.ru,
         zh: Array.isArray(entry.zh) ? entry.zh.join('；') : String(entry.zh || ''),
         pos: mapDictionaryPos(entry.pos),
-        source: 'FreeDict',
+        source: entry.source || 'WikDict / FreeDict',
         dictionaryZh: entry.zh || []
       }));
+      externalDictionaryEntries.forEach(entry => {
+        entry.dictionaryKey = normalizeSearchText(entry.ru);
+      });
       return externalDictionaryEntries;
     });
   }
@@ -589,24 +595,65 @@ function mapDictionaryPos(posValues) {
   return values.map(value => labels[value] || value).filter(Boolean).join(' / ') || '词条';
 }
 
+function russianSearchVariants(value) {
+  const needle = normalizeSearchText(value);
+  const variants = new Set([needle]);
+  const endings = [
+    ['ами', 'а'], ['ями', 'я'], ['ого', 'ый'], ['его', 'ий'],
+    ['ому', 'ый'], ['ему', 'ий'], ['ыми', 'ый'], ['ими', 'ий'],
+    ['ая', 'ый'], ['яя', 'ий'], ['ое', 'ый'], ['ее', 'ий'],
+    ['ов', ''], ['ев', ''], ['ей', ''], ['ам', 'а'], ['ям', 'я'],
+    ['ах', 'а'], ['ях', 'я'], ['ом', ''], ['ем', ''], ['ой', 'а'],
+    ['ей', 'я'], ['ы', 'а'], ['и', 'а'], ['у', 'а'], ['ю', 'я'],
+    ['е', 'а'], ['а', 'а'], ['я', 'я'], ['ешь', 'ать'], ['ете', 'ать'],
+    ['ем', 'ать'], ['ете', 'ать'], ['ют', 'ать'], ['ишь', 'ить'],
+    ['ите', 'ить'], ['им', 'ить'], ['ят', 'ить'], ['ит', 'ить']
+  ];
+  endings.forEach(([ending, replacement]) => {
+    if (!needle.endsWith(ending)) return;
+    const stem = needle.slice(0, -ending.length);
+    if (stem.length >= 3) {
+      variants.add(stem + replacement);
+      variants.add(stem);
+    }
+  });
+  return [...variants];
+}
+
 function searchExternalDictionary(entries, query, limit) {
   const needle = normalizeSearchText(query);
   if (!needle) return [];
+  const variants = new Set(russianSearchVariants(query));
   const exact = [];
+  const indexedExact = [];
+  const indexedVariant = [];
+  const variantExact = [];
   const prefix = [];
   const contains = [];
   const zhMatches = [];
+  const byKey = new Map(entries.map(entry => [entry.dictionaryKey || normalizeSearchText(entry.ru), entry]));
+  const addIndexed = (form, target) => {
+    const lemmaKeys = Array.isArray(externalDictionaryFormIndex && externalDictionaryFormIndex[form])
+      ? externalDictionaryFormIndex[form]
+      : [];
+    lemmaKeys.forEach(lemmaKey => {
+      const entry = byKey.get(lemmaKey);
+      if (entry && !target.some(item => item.ru === entry.ru)) target.push(entry);
+    });
+  };
+  addIndexed(needle, indexedExact);
+  [...variants].filter(variant => variant !== needle).forEach(variant => addIndexed(variant, indexedVariant));
   for (const entry of entries) {
-    const ru = normalizeSearchText(entry.ru);
+    const ru = entry.dictionaryKey || normalizeSearchText(entry.ru);
     const zh = normalizeSearchText(entry.zh);
     if (ru === needle) exact.push(entry);
+    else if (variants.has(ru)) variantExact.push(entry);
     else if (ru.startsWith(needle)) prefix.push(entry);
     else if (ru.includes(needle)) contains.push(entry);
     else if (zh.includes(needle)) zhMatches.push(entry);
-    if (exact.length >= limit) break;
   }
-  return [...exact, ...prefix, ...contains, ...zhMatches]
-    .filter((entry, index, list) => list.findIndex(item => normalizeSearchText(item.ru) === normalizeSearchText(entry.ru)) === index)
+  return [...exact, ...indexedExact, ...indexedVariant, ...variantExact, ...prefix, ...contains, ...zhMatches]
+    .filter((entry, index, list) => list.findIndex(item => (item.dictionaryKey || normalizeSearchText(item.ru)) === (entry.dictionaryKey || normalizeSearchText(entry.ru))) === index)
     .slice(0, limit);
 }
 
@@ -847,7 +894,7 @@ function renderWordSearchResults(results, query) {
     ).join('');
     const sourceMeta = entry.lesson
       ? escapeFeedbackHtml(entry.bookTitle) + ' · 第 ' + entry.lessonId + ' 课'
-      : '大型字典 · FreeDict';
+      : '大型字典 · ' + escapeFeedbackHtml(entry.source || 'WikDict');
     return '<article class="word-result-card">' +
       '<div class="word-result-top"><div><h3>' + escapeFeedbackHtml(addStressMarks(entry.ru)) + '</h3><p>' + escapeFeedbackHtml(entry.zh) + '</p></div>' +
       '<button class="mini-speak-btn word-result-speak" data-word="' + escapeFeedbackHtml(entry.ru) + '">🔊</button></div>' +
@@ -857,7 +904,10 @@ function renderWordSearchResults(results, query) {
       '</article>';
   }).join('');
   if (externalDictionaryMeta) {
-    container.innerHTML += '<p class="dictionary-source-note">大型字典数据来源：FreeDict/WikDict，基于 Wiktionary/DBnary，许可协议 CC BY-SA 3.0。当前离线俄语索引约 ' + externalDictionaryMeta.russianEntries.toLocaleString('zh-CN') + ' 条。</p>';
+    const aliasText = externalDictionaryMeta.formAliases
+      ? '，另含约 ' + externalDictionaryMeta.formAliases.toLocaleString('zh-CN') + ' 个变格/变位词形'
+      : '';
+    container.innerHTML += '<p class="dictionary-source-note">大型字典数据来源：FreeDict/WikDict；词形索引来自 OpenRussian。当前离线俄语索引约 ' + externalDictionaryMeta.russianEntries.toLocaleString('zh-CN') + ' 条' + aliasText + '。</p>';
   }
   container.querySelectorAll('.word-result-speak').forEach(btn => {
     btn.addEventListener('click', () => speak(btn.dataset.word));
