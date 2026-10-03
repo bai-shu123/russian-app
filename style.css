@@ -154,9 +154,43 @@ main {
 
 .vocab-controls {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
   margin-bottom: 18px;
+}
+
+.toggle-option,
+.current-wordbook-toggle,
+.wordbook-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--blue);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.toggle-option input,
+.current-wordbook-toggle input,
+.wordbook-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.vocab-new-word-count {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.current-wordbook-toggle {
+  justify-content: center;
+  margin-top: 13px;
+  color: var(--primary);
+  font-weight: 600;
 }
 
 #categorySelect {
@@ -362,6 +396,18 @@ main {
   gap: 10px;
 }
 
+.word-result-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.word-result-check {
+  color: var(--primary);
+  font-weight: 600;
+}
+
 .word-result-top h3 {
   margin: 0 0 4px;
   color: var(--blue);
@@ -455,6 +501,139 @@ main {
   line-height: 1.5;
   margin: 2px 0 0;
   text-align: center;
+}
+
+/* ==================== 生词本 ==================== */
+.wordbook-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 8px 0 16px;
+}
+
+.wordbook-header h2 {
+  margin: 0 0 4px;
+  color: var(--blue);
+}
+
+.wordbook-desc {
+  text-align: left;
+  margin: 0;
+  max-width: 560px;
+}
+
+.wordbook-summary {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #fff4d6;
+  color: #8a6d00;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.wordbook-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.wordbook-actions .auth-primary-btn {
+  width: auto;
+}
+
+.danger-outline-btn {
+  border-color: #e7b9b3;
+  color: var(--primary);
+}
+
+.wordbook-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wordbook-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.wordbook-item h3 {
+  margin: 0 0 3px;
+  color: var(--blue);
+  font-size: 1.18rem;
+}
+
+.wordbook-item p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.wordbook-item small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.wordbook-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.remove-word-btn {
+  border: 1px solid #e7b9b3;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--primary);
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+
+.remove-word-btn:hover {
+  background: #fff3f1;
+}
+
+.wordbook-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 42px 16px;
+  border: 1px dashed #d9dee8;
+  border-radius: var(--radius);
+  color: var(--muted);
+  text-align: center;
+}
+
+.wordbook-empty strong {
+  color: var(--text);
+}
+
+@media (max-width: 600px) {
+  .wordbook-header {
+    flex-direction: column;
+  }
+
+  .wordbook-item {
+    align-items: flex-start;
+  }
+
+  .wordbook-item-actions {
+    flex-direction: column;
+    gap: 6px;
+  }
 }
 
 .quiz-progress {

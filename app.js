@@ -213,7 +213,8 @@ function loadProgress(username) {
     streak: 0,
     quizzesCompleted: 0,
     bestScore: 0,
-    wordsLearned: []
+    wordsLearned: [],
+    newWords: []
   };
 }
 
@@ -298,6 +299,97 @@ function markWordLearned(ru) {
   }
 }
 
+function wordbookKey(word) {
+  return normalizeSearchText(removeStressMarks(word || ''));
+}
+
+function getNewWords() {
+  if (!progress) return [];
+  if (!Array.isArray(progress.newWords)) progress.newWords = [];
+  return progress.newWords;
+}
+
+function isNewWord(word) {
+  const key = wordbookKey(typeof word === 'string' ? word : word.ru);
+  return Boolean(key && getNewWords().some(item => wordbookKey(item.ru) === key));
+}
+
+function setNewWord(word, checked) {
+  if (!word || !word.ru) return;
+  const list = getNewWords();
+  const key = wordbookKey(word.ru);
+  const index = list.findIndex(item => wordbookKey(item.ru) === key);
+  if (checked && index === -1) {
+    list.push({
+      ru: word.ru,
+      displayRu: word.displayRu || addStressMarks(word.ru),
+      zh: word.zh || '',
+      pos: word.pos || '',
+      bookTitle: word.bookTitle || '',
+      lessonId: word.lessonId || '',
+      source: word.source || '词汇查询',
+      addedAt: new Date().toISOString()
+    });
+  } else if (!checked && index !== -1) {
+    list.splice(index, 1);
+  }
+  saveProgress(progress);
+  updateNewWordIndicators();
+  renderWordbook();
+  if (document.getElementById('vocabNewWordsOnly').checked) refreshVocabWords();
+}
+
+function removeNewWord(ru) {
+  setNewWord({ ru }, false);
+}
+
+function updateNewWordIndicators() {
+  const count = getNewWords().length;
+  const countEl = document.getElementById('vocabNewWordCount');
+  const summaryEl = document.getElementById('wordbookSummary');
+  if (countEl) countEl.textContent = '生词本 ' + count + ' 词';
+  if (summaryEl) summaryEl.textContent = count + ' 个生词';
+}
+
+function newWordCheckbox(word, className = '') {
+  const checked = isNewWord(word);
+  return '<label class="wordbook-check ' + className + '" title="加入或移出生词本">' +
+    '<input type="checkbox" class="new-word-checkbox" data-word="' + escapeFeedbackHtml(JSON.stringify(word)) + '"' + (checked ? ' checked' : '') + ' />' +
+    '<span>生词</span></label>';
+}
+
+function bindNewWordCheckboxes(container) {
+  if (!container) return;
+  container.querySelectorAll('.new-word-checkbox').forEach(input => {
+    input.addEventListener('change', () => {
+      let word = {};
+      try { word = JSON.parse(input.dataset.word); } catch (e) { return; }
+      setNewWord(word, input.checked);
+    });
+  });
+}
+
+function renderWordbook() {
+  const listEl = document.getElementById('wordbookList');
+  if (!listEl) return;
+  const words = getNewWords();
+  updateNewWordIndicators();
+  if (!words.length) {
+    listEl.innerHTML = '<div class="wordbook-empty"><strong>生词本还是空的</strong><span>在课程、词汇卡片或单词查询中勾选“生词”即可添加。</span></div>';
+    return;
+  }
+  listEl.innerHTML = words.map(word =>
+    '<article class="wordbook-item">' +
+      '<div><h3>' + escapeFeedbackHtml(word.displayRu || addStressMarks(word.ru)) + '</h3>' +
+      '<p>' + escapeFeedbackHtml(word.zh || '暂无释义') + '</p>' +
+      '<small>' + escapeFeedbackHtml([word.bookTitle, word.lessonId ? '第 ' + word.lessonId + ' 课' : '', word.source].filter(Boolean).join(' · ')) + '</small></div>' +
+      '<div class="wordbook-item-actions"><button class="mini-speak-btn wordbook-speak" data-word="' + escapeFeedbackHtml(word.ru) + '" title="朗读">🔊</button><button class="remove-word-btn" data-word="' + escapeFeedbackHtml(word.ru) + '" type="button">移除</button></div>' +
+    '</article>'
+  ).join('');
+  listEl.querySelectorAll('.wordbook-speak').forEach(btn => btn.addEventListener('click', () => speak(btn.dataset.word)));
+  listEl.querySelectorAll('.remove-word-btn').forEach(btn => btn.addEventListener('click', () => removeNewWord(btn.dataset.word)));
+}
+
 // ---------- 留言反馈 ----------
 const FEEDBACK_KEY = 'ru_learning_feedback_v1';
 function escapeFeedbackHtml(value) { return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;'); }
@@ -361,6 +453,7 @@ tabBtns.forEach(btn => {
     document.getElementById(btn.dataset.tab).classList.add('active');
     if (btn.dataset.tab === 'admin') renderAdminPanel();
     if (btn.dataset.tab === 'feedback') renderFeedback();
+    if (btn.dataset.tab === 'wordbook') renderWordbook();
   });
 });
 
@@ -462,9 +555,10 @@ function renderCourseDetail() {
   }
 
   let vocabHtml = '<table class="vocab-table">';
-  vocabHtml += '<tr><th>俄语</th><th>词性</th><th>释义</th><th></th></tr>';
+  vocabHtml += '<tr><th>俄语</th><th>词性</th><th>释义</th><th>生词</th><th></th></tr>';
   lesson.vocab.forEach(w => {
-    vocabHtml += '<tr><td class="vocab-ru">' + addStressMarks(w.ru) + '</td><td class="vocab-pos">' + w.pos + '</td><td>' + w.zh + '</td><td><button class="mini-speak-btn" data-word="' + w.ru.replace(/"/g, '&quot;') + '">🔊</button></td></tr>';
+    const word = { ru: w.ru, displayRu: addStressMarks(w.ru), zh: w.zh, pos: w.pos, bookTitle: currentBook().title, lessonId: lesson.id, source: '课程' };
+    vocabHtml += '<tr><td class="vocab-ru">' + addStressMarks(w.ru) + '</td><td class="vocab-pos">' + w.pos + '</td><td>' + w.zh + '</td><td>' + newWordCheckbox(word) + '</td><td><button class="mini-speak-btn" data-word="' + w.ru.replace(/"/g, '&quot;') + '">🔊</button></td></tr>';
   });
   vocabHtml += '</table>';
 
@@ -495,6 +589,7 @@ function renderCourseDetail() {
   detailEl.querySelectorAll('.mini-speak-btn').forEach(btn => {
     btn.addEventListener('click', () => speak(btn.dataset.word));
   });
+  bindNewWordCheckboxes(detailEl);
   detailEl.querySelectorAll('.text-ru').forEach(el => {
     el.style.cursor = 'pointer';
     el.addEventListener('click', () => speak(el.textContent));
@@ -1064,9 +1159,18 @@ function renderWordSearchResults(results, query) {
     const sourceMeta = entry.lesson
       ? escapeFeedbackHtml(entry.bookTitle) + ' · 第 ' + entry.lessonId + ' 课'
       : '大型字典 · ' + escapeFeedbackHtml(entry.source || 'WikDict');
+    const searchWord = {
+      ru: entry.ru,
+      displayRu: addStressMarks(entry.ru),
+      zh: entry.zh,
+      pos: entry.pos,
+      bookTitle: entry.bookTitle || '',
+      lessonId: entry.lessonId || '',
+      source: entry.lesson ? '单词查询 · 课程词库' : '单词查询 · 大型字典'
+    };
     return '<article class="word-result-card">' +
       '<div class="word-result-top"><div><h3>' + escapeFeedbackHtml(addStressMarks(entry.ru)) + '</h3><p>' + escapeFeedbackHtml(entry.zh) + '</p></div>' +
-      '<button class="mini-speak-btn word-result-speak" data-word="' + escapeFeedbackHtml(entry.ru) + '">🔊</button></div>' +
+      '<div class="word-result-actions">' + newWordCheckbox(searchWord, 'word-result-check') + '<button class="mini-speak-btn word-result-speak" data-word="' + escapeFeedbackHtml(entry.ru) + '">🔊</button></div></div>' +
       '<div class="word-result-meta"><span>' + escapeFeedbackHtml(entry.pos) + '</span><span>' + sourceMeta + '</span></div>' +
       renderFormTable(formTable) +
       examplesSection +
@@ -1081,6 +1185,7 @@ function renderWordSearchResults(results, query) {
   container.querySelectorAll('.word-result-speak').forEach(btn => {
     btn.addEventListener('click', () => speak(btn.dataset.word));
   });
+  bindNewWordCheckboxes(container);
 }
 
 function renderWordSearchLoading() {
@@ -1169,7 +1274,16 @@ function getWordsForUnits(unitIds) {
   const words = [];
   courseData.forEach(lesson => {
     if (unitIds.includes(lesson.id)) {
-      lesson.vocab.forEach(w => words.push({ ru: w.ru, displayRu: addStressMarks(w.ru), zh: w.zh, lessonId: lesson.id }));
+      lesson.vocab.forEach(w => words.push({
+        ru: w.ru,
+        displayRu: addStressMarks(w.ru),
+        zh: w.zh,
+        pos: w.pos,
+        bookId: currentBookId,
+        bookTitle: currentBook().title,
+        lessonId: lesson.id,
+        source: '课程'
+      }));
     }
   });
   return words;
@@ -1213,6 +1327,7 @@ function updateUnitCount(countId, selectedUnits) {
 // ---------- 词汇卡片 ----------
 let currentVocabWords = [];
 let currentCardIndex = 0;
+let vocabNewWordsOnly = false;
 
 function initVocabUnitSelector() {
   vocabSelectedUnits = loadUnitSelection('vocab');
@@ -1234,7 +1349,8 @@ document.getElementById('vocabSelectNoneBtn').addEventListener('click', () => {
 });
 
 function refreshVocabWords() {
-  currentVocabWords = getWordsForUnits(vocabSelectedUnits);
+  const selectedWords = getWordsForUnits(vocabSelectedUnits);
+  currentVocabWords = vocabNewWordsOnly ? getNewWords().map(word => ({ ...word, displayRu: word.displayRu || addStressMarks(word.ru) })) : selectedWords;
   currentCardIndex = 0;
   const emptyState = document.getElementById('vocabEmptyState');
   const cardArea = document.getElementById('vocabCardArea');
@@ -1260,6 +1376,8 @@ function renderFlashcard() {
   handwriting.setAttribute('aria-label', '标准俄语手写体：' + handwritingWord);
   document.getElementById('cardZh').textContent = word.zh;
   document.getElementById('cardCounter').textContent = (currentCardIndex + 1) + ' / ' + currentVocabWords.length;
+  const currentWordToggle = document.getElementById('currentVocabNewWord');
+  if (currentWordToggle) currentWordToggle.checked = isNewWord(word);
   flashcard.classList.remove('flipped', 'showing-handwriting');
   flashcard.dataset.state = 'front';
   document.getElementById('flashcardHint').textContent = '点击一次查看中文，再点击一次查看俄语手写体';
@@ -1310,6 +1428,38 @@ document.getElementById('nextCardBtn').addEventListener('click', () => {
 document.getElementById('speakAllBtn').addEventListener('click', () => {
   if (currentVocabWords.length === 0) return;
   speak(currentVocabWords[currentCardIndex].ru);
+});
+
+document.getElementById('vocabNewWordsOnly').addEventListener('change', event => {
+  vocabNewWordsOnly = event.target.checked;
+  refreshVocabWords();
+});
+
+document.getElementById('currentVocabNewWord').addEventListener('change', event => {
+  const word = currentVocabWords[currentCardIndex];
+  if (word) setNewWord(word, event.target.checked);
+});
+
+document.getElementById('startWordbookReviewBtn').addEventListener('click', () => {
+  if (!getNewWords().length) {
+    renderWordbook();
+    return;
+  }
+  document.getElementById('vocabNewWordsOnly').checked = true;
+  vocabNewWordsOnly = true;
+  document.querySelector('.tab-btn[data-tab="vocab"]').click();
+  refreshVocabWords();
+});
+
+document.getElementById('clearWordbookBtn').addEventListener('click', () => {
+  if (!getNewWords().length) return;
+  if (!window.confirm('确定清空全部生词吗？清空后仍可重新勾选添加。')) return;
+  progress.newWords = [];
+  saveProgress(progress);
+  updateNewWordIndicators();
+  renderWordbook();
+  renderCourseDetail();
+  refreshVocabWords();
 });
 
 // ---------- 测验 ----------
@@ -1704,6 +1854,8 @@ async function enterApp(username, role) {
   progress = updateStreak(loadProgress(username));
   loadCourseBookSelection();
   await renderFeedback();
+  updateNewWordIndicators();
+  renderWordbook();
   renderAlphabet();
   refreshHeaderAndStats();
   startLearningPresence();
