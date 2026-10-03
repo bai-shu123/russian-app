@@ -533,6 +533,22 @@ main {
   font-weight: 700;
 }
 
+.wordbook-sync-status {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-align: right;
+}
+
+.wordbook-sync-status.online {
+  color: #2f8f46;
+}
+
+.wordbook-sync-status.offline {
+  color: #a56b00;
+}
+
 .wordbook-actions {
   display: flex;
   flex-wrap: wrap;

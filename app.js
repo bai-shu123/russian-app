@@ -299,6 +299,9 @@ function markWordLearned(ru) {
   }
 }
 
+const WORDBOOK_TABLE = 'wordbook_entries';
+let wordbookCloudAvailable = false;
+
 function wordbookKey(word) {
   return normalizeSearchText(removeStressMarks(word || ''));
 }
@@ -337,6 +340,7 @@ function setNewWord(word, checked) {
   updateNewWordIndicators();
   renderWordbook();
   if (document.getElementById('vocabNewWordsOnly').checked) refreshVocabWords();
+  syncNewWordToCloud(word, checked);
 }
 
 function removeNewWord(ru) {
@@ -349,6 +353,108 @@ function updateNewWordIndicators() {
   const summaryEl = document.getElementById('wordbookSummary');
   if (countEl) countEl.textContent = '生词本 ' + count + ' 词';
   if (summaryEl) summaryEl.textContent = count + ' 个生词';
+}
+
+function setWordbookSyncStatus(text, state = '') {
+  const status = document.getElementById('wordbookSyncStatus');
+  if (!status) return;
+  status.textContent = text;
+  status.className = 'wordbook-sync-status' + (state ? ' ' + state : '');
+}
+
+function saveLocalProgressOnly() {
+  if (currentUsername && progress) {
+    localStorage.setItem(progressKey(currentUsername), JSON.stringify(progress));
+  }
+}
+
+function wordbookCloudRow(word) {
+  return {
+    user_id: window.Auth.currentUserId,
+    word_key: wordbookKey(word.ru),
+    ru: word.ru,
+    display_ru: word.displayRu || addStressMarks(word.ru),
+    zh: word.zh || '',
+    pos: word.pos || '',
+    book_title: word.bookTitle || '',
+    lesson_id: word.lessonId ? String(word.lessonId) : '',
+    source: word.source || '词汇查询'
+  };
+}
+
+async function upsertCloudWords(words) {
+  if (!window.Auth.currentUserId || !words.length) return true;
+  const { error } = await window.Auth.supabase
+    .from(WORDBOOK_TABLE)
+    .upsert(words.map(wordbookCloudRow), { onConflict: 'user_id,word_key' });
+  if (error) {
+    wordbookCloudAvailable = false;
+    setWordbookSyncStatus('云端表尚未启用，当前保存在本浏览器', 'offline');
+    return false;
+  }
+  return true;
+}
+
+async function deleteCloudWord(ru) {
+  if (!window.Auth.currentUserId || !wordbookCloudAvailable) return;
+  const { error } = await window.Auth.supabase
+    .from(WORDBOOK_TABLE)
+    .delete()
+    .eq('user_id', window.Auth.currentUserId)
+    .eq('word_key', wordbookKey(ru));
+  if (error) {
+    wordbookCloudAvailable = false;
+    setWordbookSyncStatus('移除未同步，请稍后重试', 'offline');
+  }
+}
+
+async function loadCloudWordbook() {
+  if (!window.Auth.currentUserId) return;
+  setWordbookSyncStatus('正在同步云端生词…');
+  const { data, error } = await window.Auth.supabase
+    .from(WORDBOOK_TABLE)
+    .select('word_key,ru,display_ru,zh,pos,book_title,lesson_id,source,created_at')
+    .eq('user_id', window.Auth.currentUserId)
+    .order('created_at', { ascending: true });
+  if (error) {
+    wordbookCloudAvailable = false;
+    setWordbookSyncStatus('云端表尚未启用，当前保存在本浏览器', 'offline');
+    return;
+  }
+
+  const localWords = getNewWords().slice();
+  const cloudWords = (data || []).map(item => ({
+    ru: item.ru,
+    displayRu: item.display_ru || addStressMarks(item.ru),
+    zh: item.zh || '',
+    pos: item.pos || '',
+    bookTitle: item.book_title || '',
+    lessonId: item.lesson_id || '',
+    source: item.source || '生词本',
+    addedAt: item.created_at || new Date().toISOString()
+  }));
+  const cloudKeys = new Set(cloudWords.map(word => wordbookKey(word.ru)));
+  const localOnly = localWords.filter(word => !cloudKeys.has(wordbookKey(word.ru)));
+  progress.newWords = cloudWords.concat(localOnly);
+  saveLocalProgressOnly();
+  wordbookCloudAvailable = true;
+  setWordbookSyncStatus('已同步到云端', 'online');
+  if (localOnly.length) await upsertCloudWords(localOnly);
+  updateNewWordIndicators();
+  renderWordbook();
+  renderCourseDetail();
+  refreshVocabWords();
+}
+
+async function syncNewWordToCloud(word, checked) {
+  if (!wordbookCloudAvailable || !window.Auth.currentUserId) return;
+  setWordbookSyncStatus('正在同步…');
+  if (checked) {
+    await upsertCloudWords([word]);
+  } else {
+    await deleteCloudWord(word.ru);
+  }
+  if (wordbookCloudAvailable) setWordbookSyncStatus('已同步到云端', 'online');
 }
 
 function newWordCheckbox(word, className = '') {
@@ -1454,12 +1560,18 @@ document.getElementById('startWordbookReviewBtn').addEventListener('click', () =
 document.getElementById('clearWordbookBtn').addEventListener('click', () => {
   if (!getNewWords().length) return;
   if (!window.confirm('确定清空全部生词吗？清空后仍可重新勾选添加。')) return;
+  const oldWords = getNewWords().slice();
   progress.newWords = [];
   saveProgress(progress);
   updateNewWordIndicators();
   renderWordbook();
   renderCourseDetail();
   refreshVocabWords();
+  if (wordbookCloudAvailable) {
+    Promise.all(oldWords.map(word => deleteCloudWord(word.ru))).then(() => {
+      if (wordbookCloudAvailable) setWordbookSyncStatus('已同步到云端', 'online');
+    });
+  }
 });
 
 // ---------- 测验 ----------
@@ -1859,6 +1971,7 @@ async function enterApp(username, role) {
   renderAlphabet();
   refreshHeaderAndStats();
   startLearningPresence();
+  await loadCloudWordbook();
 }
 
 // ---------- 初始化 ----------
