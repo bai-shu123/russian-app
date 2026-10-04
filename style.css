@@ -2631,3 +2631,166 @@ main {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ==================== Bright study palette ==================== */
+:root {
+  --primary: #e25549;
+  --primary-dark: #c33e35;
+  --blue: #2f78b7;
+  --blue-soft: #e7f3fb;
+  --bg: #f2f8fc;
+  --card-bg: #ffffff;
+  --text: #1f3547;
+  --muted: #647d91;
+  --line: #d8e7f0;
+  --gold: #e3a43a;
+  --shadow: 0 8px 24px rgba(47, 120, 183, 0.09);
+}
+
+html,
+body {
+  background: var(--bg);
+}
+
+body {
+  color: var(--text);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-color: rgba(227, 164, 58, 0.56);
+}
+
+.app-header {
+  background: #2f78b7;
+}
+
+.app-header::after,
+.app-header::before,
+.book-selector-panel::before,
+.tab-btn.active::after {
+  background: #e25549;
+}
+
+.app-kicker {
+  color: #d8effd;
+}
+
+.app-header h1 span {
+  color: #e5f5ff;
+}
+
+.app-subtitle {
+  color: #d0e9f7;
+}
+
+.tabs {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.tab-btn.active,
+.tab-btn:hover,
+.grammar-nav-link:hover {
+  border-color: #bcdcec;
+  background: var(--blue-soft);
+  color: #25679f;
+}
+
+.grammar-nav-link {
+  border-left-color: var(--line);
+}
+
+.book-selector-panel,
+.unit-selector-panel,
+.course-detail,
+.word-search-panel,
+.feedback-form,
+.feedback-list-panel,
+.admin-dashboard-section,
+.stat-card,
+#quizResult,
+.auth-box {
+  background: #ffffff;
+}
+
+.book-selector-panel,
+.unit-selector-panel,
+.course-detail,
+.word-search-panel,
+.feedback-form,
+.feedback-list-panel,
+.admin-dashboard-section,
+.stat-card,
+#quizResult {
+  border-color: var(--line);
+}
+
+.course-list-item {
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.course-list-item:hover {
+  border-color: #bcdcec;
+  background: #f6fbfe;
+}
+
+.course-detail::before,
+.wordbook-header::after,
+.feedback-header::after,
+.admin-dashboard-header::after,
+.progress-cards .stat-card::after {
+  background: #f0b64b;
+}
+
+#vocab .unit-selector-panel,
+.feedback-form,
+.feedback-list-panel,
+.admin-dashboard-section {
+  border-top-color: #2f78b7;
+}
+
+.flashcard-wrap {
+  border-color: #c5dfed;
+  background: #e6f2f8;
+}
+
+.flashcard-wrap::before {
+  color: #6b879b;
+}
+
+.flashcard-front {
+  background: #2f78b7;
+}
+
+.flashcard-back {
+  background: #e25549;
+}
+
+.word-search-row input:focus,
+.form-row input:focus,
+.form-row select:focus,
+.form-row textarea:focus,
+.admin-reply-input:focus {
+  border-color: #2f78b7;
+  box-shadow: 0 0 0 3px rgba(47, 120, 183, 0.14);
+}
+
+.auth-overlay {
+  background: #2f78b7;
+}
+
+.auth-box {
+  border-color: #c5dfed;
+  box-shadow: 0 20px 50px rgba(35, 96, 143, 0.2);
+}
+
+.auth-box::before {
+  background: #e25549;
+}
+
+footer {
+  background: #e8f3f9;
+}
