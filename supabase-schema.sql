@@ -61,10 +61,25 @@ create table if not exists public.wordbook_entries (
   primary key (user_id, word_key)
 );
 
+create table if not exists public.learned_word_entries (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  word_key text not null,
+  ru text not null,
+  display_ru text not null,
+  zh text not null default '',
+  pos text not null default '',
+  book_title text not null default '',
+  lesson_id text not null default '',
+  source text not null default '生词复习',
+  created_at timestamptz not null default now(),
+  primary key (user_id, word_key)
+);
+
 alter table public.profiles enable row level security;
 alter table public.feedback enable row level security;
 alter table public.learning_progress enable row level security;
 alter table public.wordbook_entries enable row level security;
+alter table public.learned_word_entries enable row level security;
 
 create or replace function public.is_admin()
 returns boolean
@@ -137,6 +152,27 @@ with check (user_id = (select auth.uid()));
 
 drop policy if exists "wordbook own delete" on public.wordbook_entries;
 create policy "wordbook own delete" on public.wordbook_entries
+for delete to authenticated
+using (user_id = (select auth.uid()));
+
+drop policy if exists "learned words own read" on public.learned_word_entries;
+create policy "learned words own read" on public.learned_word_entries
+for select to authenticated
+using (user_id = (select auth.uid()));
+
+drop policy if exists "learned words own insert" on public.learned_word_entries;
+create policy "learned words own insert" on public.learned_word_entries
+for insert to authenticated
+with check (user_id = (select auth.uid()));
+
+drop policy if exists "learned words own update" on public.learned_word_entries;
+create policy "learned words own update" on public.learned_word_entries
+for update to authenticated
+using (user_id = (select auth.uid()))
+with check (user_id = (select auth.uid()));
+
+drop policy if exists "learned words own delete" on public.learned_word_entries;
+create policy "learned words own delete" on public.learned_word_entries
 for delete to authenticated
 using (user_id = (select auth.uid()));
 

@@ -214,7 +214,8 @@ function loadProgress(username) {
     quizzesCompleted: 0,
     bestScore: 0,
     wordsLearned: [],
-    newWords: []
+    newWords: [],
+    learnedWords: []
   };
 }
 
@@ -300,7 +301,9 @@ function markWordLearned(ru) {
 }
 
 const WORDBOOK_TABLE = 'wordbook_entries';
+const LEARNED_TABLE = 'learned_word_entries';
 let wordbookCloudAvailable = false;
+let learnedCloudAvailable = false;
 
 function wordbookKey(word) {
   return normalizeSearchText(removeStressMarks(word || ''));
@@ -310,6 +313,12 @@ function getNewWords() {
   if (!progress) return [];
   if (!Array.isArray(progress.newWords)) progress.newWords = [];
   return progress.newWords;
+}
+
+function getLearnedWords() {
+  if (!progress) return [];
+  if (!Array.isArray(progress.learnedWords)) progress.learnedWords = [];
+  return progress.learnedWords;
 }
 
 function isNewWord(word) {
@@ -362,10 +371,118 @@ function setWordbookSyncStatus(text, state = '') {
   status.className = 'wordbook-sync-status' + (state ? ' ' + state : '');
 }
 
+function learnedCloudRow(word) {
+  return {
+    user_id: window.Auth.currentUserId,
+    word_key: wordbookKey(word.ru),
+    ru: word.ru,
+    display_ru: word.displayRu || addStressMarks(word.ru),
+    zh: word.zh || '',
+    pos: word.pos || '',
+    book_title: word.bookTitle || '',
+    lesson_id: word.lessonId ? String(word.lessonId) : '',
+    source: word.source || '生词复习'
+  };
+}
+
+async function upsertCloudLearnedWords(words) {
+  if (!window.Auth.currentUserId || !words.length) return true;
+  const { error } = await window.Auth.supabase
+    .from(LEARNED_TABLE)
+    .upsert(words.map(learnedCloudRow), { onConflict: 'user_id,word_key' });
+  if (error) {
+    learnedCloudAvailable = false;
+    setWordbookSyncStatus('已学单词云端表尚未启用，当前保存在本浏览器', 'offline');
+    return false;
+  }
+  return true;
+}
+
+async function deleteCloudLearnedWord(ru) {
+  if (!window.Auth.currentUserId || !learnedCloudAvailable) return;
+  const { error } = await window.Auth.supabase
+    .from(LEARNED_TABLE)
+    .delete()
+    .eq('user_id', window.Auth.currentUserId)
+    .eq('word_key', wordbookKey(ru));
+  if (error) {
+    learnedCloudAvailable = false;
+    setWordbookSyncStatus('已学单词移除未同步，请稍后重试', 'offline');
+  }
+}
+
+async function loadCloudLearnedWords() {
+  if (!window.Auth.currentUserId) return;
+  const { data, error } = await window.Auth.supabase
+    .from(LEARNED_TABLE)
+    .select('word_key,ru,display_ru,zh,pos,book_title,lesson_id,source,created_at')
+    .eq('user_id', window.Auth.currentUserId)
+    .order('created_at', { ascending: true });
+  if (error) {
+    learnedCloudAvailable = false;
+    setWordbookSyncStatus('已学单词云端表尚未启用，当前保存在本浏览器', 'offline');
+    return;
+  }
+
+  const localWords = getLearnedWords().slice();
+  const cloudWords = (data || []).map(item => ({
+    ru: item.ru,
+    displayRu: item.display_ru || addStressMarks(item.ru),
+    zh: item.zh || '',
+    pos: item.pos || '',
+    bookTitle: item.book_title || '',
+    lessonId: item.lesson_id || '',
+    source: item.source || '生词复习',
+    learnedAt: item.created_at || new Date().toISOString()
+  }));
+  const shouldMigrateLocal = !localStorage.getItem(cloudMigrationKey('learned_words'));
+  const cloudKeys = new Set(cloudWords.map(word => wordbookKey(word.ru)));
+  const localOnly = shouldMigrateLocal
+    ? localWords.filter(word => !cloudKeys.has(wordbookKey(word.ru)))
+    : [];
+  progress.learnedWords = cloudWords.concat(localOnly);
+  saveLocalProgressOnly();
+  learnedCloudAvailable = true;
+  setWordbookSyncStatus(wordbookCloudAvailable ? '生词和已学单词已同步到云端' : '已学单词已同步到云端', 'online');
+  if (shouldMigrateLocal) {
+    const migrated = await upsertCloudLearnedWords(localOnly);
+    if (migrated) localStorage.setItem(cloudMigrationKey('learned_words'), '1');
+  }
+  renderLearnedWords();
+}
+
+async function syncCompletedWordToCloud(word) {
+  if (learnedCloudAvailable) await upsertCloudLearnedWords([word]);
+  if (wordbookCloudAvailable) await deleteCloudWord(word.ru);
+  if (wordbookCloudAvailable || learnedCloudAvailable) setWordbookSyncStatus('生词和已学单词已同步到云端', 'online');
+}
+
+async function completeNewWord(ru) {
+  const list = getNewWords();
+  const index = list.findIndex(item => wordbookKey(item.ru) === wordbookKey(ru));
+  if (index === -1) return;
+  const word = { ...list[index], learnedAt: new Date().toISOString() };
+  list.splice(index, 1);
+  const learned = getLearnedWords();
+  if (!learned.some(item => wordbookKey(item.ru) === wordbookKey(word.ru))) {
+    learned.push(word);
+  }
+  saveProgress(progress);
+  updateNewWordIndicators();
+  renderWordbook();
+  renderLearnedWords();
+  refreshVocabWords();
+  await syncCompletedWordToCloud(word);
+}
+
 function saveLocalProgressOnly() {
   if (currentUsername && progress) {
     localStorage.setItem(progressKey(currentUsername), JSON.stringify(progress));
   }
+}
+
+function cloudMigrationKey(type) {
+  return 'ru_' + type + '_cloud_migrated::' + currentUsername.toLowerCase();
 }
 
 function wordbookCloudRow(word) {
@@ -433,13 +550,19 @@ async function loadCloudWordbook() {
     source: item.source || '生词本',
     addedAt: item.created_at || new Date().toISOString()
   }));
+  const shouldMigrateLocal = !localStorage.getItem(cloudMigrationKey('wordbook'));
   const cloudKeys = new Set(cloudWords.map(word => wordbookKey(word.ru)));
-  const localOnly = localWords.filter(word => !cloudKeys.has(wordbookKey(word.ru)));
+  const localOnly = shouldMigrateLocal
+    ? localWords.filter(word => !cloudKeys.has(wordbookKey(word.ru)))
+    : [];
   progress.newWords = cloudWords.concat(localOnly);
   saveLocalProgressOnly();
   wordbookCloudAvailable = true;
   setWordbookSyncStatus('已同步到云端', 'online');
-  if (localOnly.length) await upsertCloudWords(localOnly);
+  if (shouldMigrateLocal) {
+    const migrated = await upsertCloudWords(localOnly);
+    if (migrated) localStorage.setItem(cloudMigrationKey('wordbook'), '1');
+  }
   updateNewWordIndicators();
   renderWordbook();
   renderCourseDetail();
@@ -482,18 +605,71 @@ function renderWordbook() {
   updateNewWordIndicators();
   if (!words.length) {
     listEl.innerHTML = '<div class="wordbook-empty"><strong>生词本还是空的</strong><span>在课程、词汇卡片或单词查询中勾选“生词”即可添加。</span></div>';
-    return;
+  } else {
+    listEl.innerHTML = words.map(word =>
+      '<article class="wordbook-item">' +
+        '<div><h3>' + escapeFeedbackHtml(word.displayRu || addStressMarks(word.ru)) + '</h3>' +
+        '<p>' + escapeFeedbackHtml(word.zh || '暂无释义') + '</p>' +
+        '<small>' + escapeFeedbackHtml([word.bookTitle, word.lessonId ? '第 ' + word.lessonId + ' 课' : '', word.source].filter(Boolean).join(' · ')) + '</small></div>' +
+        '<div class="wordbook-item-actions"><button class="mini-speak-btn wordbook-speak" data-word="' + escapeFeedbackHtml(word.ru) + '" title="朗读">🔊</button><button class="review-word-btn" data-word="' + escapeFeedbackHtml(word.ru) + '" type="button">完成复习</button><button class="remove-word-btn" data-word="' + escapeFeedbackHtml(word.ru) + '" type="button">移除</button></div>' +
+      '</article>'
+    ).join('');
   }
-  listEl.innerHTML = words.map(word =>
-    '<article class="wordbook-item">' +
-      '<div><h3>' + escapeFeedbackHtml(word.displayRu || addStressMarks(word.ru)) + '</h3>' +
-      '<p>' + escapeFeedbackHtml(word.zh || '暂无释义') + '</p>' +
-      '<small>' + escapeFeedbackHtml([word.bookTitle, word.lessonId ? '第 ' + word.lessonId + ' 课' : '', word.source].filter(Boolean).join(' · ')) + '</small></div>' +
-      '<div class="wordbook-item-actions"><button class="mini-speak-btn wordbook-speak" data-word="' + escapeFeedbackHtml(word.ru) + '" title="朗读">🔊</button><button class="remove-word-btn" data-word="' + escapeFeedbackHtml(word.ru) + '" type="button">移除</button></div>' +
-    '</article>'
-  ).join('');
   listEl.querySelectorAll('.wordbook-speak').forEach(btn => btn.addEventListener('click', () => speak(btn.dataset.word)));
   listEl.querySelectorAll('.remove-word-btn').forEach(btn => btn.addEventListener('click', () => removeNewWord(btn.dataset.word)));
+  listEl.querySelectorAll('.review-word-btn').forEach(btn => btn.addEventListener('click', () => completeNewWord(btn.dataset.word)));
+}
+
+function renderLearnedWords() {
+  const listEl = document.getElementById('learnedWordList');
+  const countEl = document.getElementById('learnedWordCount');
+  if (!listEl) return;
+  const words = getLearnedWords();
+  if (countEl) countEl.textContent = words.length + ' 个';
+  if (!words.length) {
+    listEl.innerHTML = '<div class="wordbook-empty"><strong>还没有已学单词</strong><span>在生词本中点击“完成复习”，单词会移动到这里。</span></div>';
+    return;
+  }
+  listEl.innerHTML = words.map(word => {
+    const key = wordbookKey(word.ru);
+    const formTable = getFormTable(word);
+    const details = formTable
+      ? renderFormTable(formTable)
+      : '<div class="word-form-note">暂时没有可自动生成的变格或变位，请结合课程和词典学习。</div>';
+    return '<article class="learned-word-item">' +
+      '<button class="learned-word-toggle" type="button" data-learned-key="' + escapeFeedbackHtml(key) + '" aria-expanded="false">' +
+        '<span><strong>' + escapeFeedbackHtml(word.displayRu || addStressMarks(word.ru)) + '</strong><small>' + escapeFeedbackHtml(word.zh || '暂无释义') + '</small></span>' +
+        '<span class="learned-word-toggle-label">查看变格/过去式</span>' +
+      '</button>' +
+      '<div class="learned-word-details">' + details +
+        '<div class="learned-word-actions"><button class="mini-speak-btn learned-speak" data-word="' + escapeFeedbackHtml(word.ru) + '" title="朗读">🔊</button><button class="restore-word-btn" data-word="' + escapeFeedbackHtml(word.ru) + '" type="button">移回生词本</button><button class="remove-learned-btn" data-word="' + escapeFeedbackHtml(word.ru) + '" type="button">删除记录</button></div>' +
+      '</div>' +
+    '</article>';
+  }).join('');
+  listEl.querySelectorAll('.learned-word-toggle').forEach(btn => btn.addEventListener('click', () => {
+    const item = btn.closest('.learned-word-item');
+    const expanded = item.classList.toggle('expanded');
+    btn.setAttribute('aria-expanded', String(expanded));
+  }));
+  listEl.querySelectorAll('.learned-speak').forEach(btn => btn.addEventListener('click', () => speak(btn.dataset.word)));
+  listEl.querySelectorAll('.restore-word-btn').forEach(btn => btn.addEventListener('click', () => {
+    const word = getLearnedWords().find(item => wordbookKey(item.ru) === wordbookKey(btn.dataset.word));
+    if (word) {
+      setNewWord(word, true);
+      removeLearnedWord(btn.dataset.word);
+    }
+  }));
+  listEl.querySelectorAll('.remove-learned-btn').forEach(btn => btn.addEventListener('click', () => removeLearnedWord(btn.dataset.word)));
+}
+
+function removeLearnedWord(ru) {
+  const list = getLearnedWords();
+  const index = list.findIndex(item => wordbookKey(item.ru) === wordbookKey(ru));
+  if (index === -1) return;
+  list.splice(index, 1);
+  saveProgress(progress);
+  renderLearnedWords();
+  deleteCloudLearnedWord(ru);
 }
 
 // ---------- 留言反馈 ----------
@@ -998,6 +1174,20 @@ function adjectiveRows(word) {
 function verbRows(word) {
   const lower = normalizeSearchText(word);
   if (!isSingleRussianWord(lower)) return null;
+  const irregular = {
+    идти: [
+      ['я', 'иду'], ['ты', 'идёшь'], ['он/она', 'идёт'], ['мы', 'идём'], ['вы', 'идёте'], ['они', 'идут'],
+      ['过去时 阳性', 'шёл'], ['过去时 阴性', 'шла'], ['过去时 中性', 'шло'], ['过去时 复数', 'шли']
+    ],
+    быть: [
+      ['现在时', '通常省略'], ['过去时 阳性', 'был'], ['过去时 阴性', 'была'], ['过去时 中性', 'было'], ['过去时 复数', 'были']
+    ],
+    есть: [
+      ['я', 'ем'], ['ты', 'ешь'], ['он/она', 'ест'], ['мы', 'едим'], ['вы', 'едите'], ['они', 'едят'],
+      ['过去时 阳性', 'ел'], ['过去时 阴性', 'ела'], ['过去时 中性', 'ело'], ['过去时 复数', 'ели']
+    ]
+  };
+  if (irregular[lower]) return { title: '动词现在时与过去时（常用不规则形式）', rows: irregular[lower] };
   const reflexive = lower.endsWith('ться');
   const infinitive = reflexive ? lower.slice(0, -4) + 'ть' : lower;
   if (!infinitive.endsWith('ть')) return null;
@@ -1025,7 +1215,7 @@ function verbRows(word) {
       ['они', stem + 'ют' + reflexiveSuffix]
     ];
   }
-  const pastBase = base.slice(0, -1);
+  const pastBase = infinitive.slice(0, -2);
   const pastRows = [
     ['过去时 阳性', pastBase + 'л' + reflexiveSuffix],
     ['过去时 阴性', pastBase + 'ла' + reflexiveSuffix],
@@ -1047,11 +1237,12 @@ const pronounCaseForms = {
 
 function getFormTable(entry) {
   const lower = normalizeSearchText(entry.ru);
+  const pos = entry.pos || '';
   if (pronounCaseForms[lower]) return { title: '人称代词各格', rows: pronounCaseForms[lower] };
-  if (entry.pos.includes('动词')) return verbRows(entry.ru);
-  if (entry.pos.includes('形容词')) return adjectiveRows(entry.ru);
-  if (entry.pos.includes('代词')) return adjectiveRows(entry.ru);
-  if (entry.pos.includes('名词') || entry.pos.includes('专名')) return nounCaseRows(entry.ru);
+  if (pos.includes('动词')) return verbRows(entry.ru);
+  if (pos.includes('形容词')) return adjectiveRows(entry.ru);
+  if (pos.includes('代词')) return adjectiveRows(entry.ru);
+  if (pos.includes('名词') || pos.includes('专名')) return nounCaseRows(entry.ru);
   return null;
 }
 
@@ -1484,6 +1675,11 @@ function renderFlashcard() {
   document.getElementById('cardCounter').textContent = (currentCardIndex + 1) + ' / ' + currentVocabWords.length;
   const currentWordToggle = document.getElementById('currentVocabNewWord');
   if (currentWordToggle) currentWordToggle.checked = isNewWord(word);
+  const completeCurrentBtn = document.getElementById('completeCurrentWordBtn');
+  if (completeCurrentBtn) {
+    completeCurrentBtn.disabled = !isNewWord(word);
+    completeCurrentBtn.title = isNewWord(word) ? '完成这个生词的复习' : '请先把单词加入生词本';
+  }
   flashcard.classList.remove('flipped', 'showing-handwriting');
   flashcard.dataset.state = 'front';
   document.getElementById('flashcardHint').textContent = '点击一次查看中文，再点击一次查看俄语手写体';
@@ -1544,6 +1740,11 @@ document.getElementById('vocabNewWordsOnly').addEventListener('change', event =>
 document.getElementById('currentVocabNewWord').addEventListener('change', event => {
   const word = currentVocabWords[currentCardIndex];
   if (word) setNewWord(word, event.target.checked);
+});
+
+document.getElementById('completeCurrentWordBtn').addEventListener('click', () => {
+  const word = currentVocabWords[currentCardIndex];
+  if (word && isNewWord(word)) completeNewWord(word.ru);
 });
 
 document.getElementById('startWordbookReviewBtn').addEventListener('click', () => {
@@ -1968,10 +2169,12 @@ async function enterApp(username, role) {
   await renderFeedback();
   updateNewWordIndicators();
   renderWordbook();
+  renderLearnedWords();
   renderAlphabet();
   refreshHeaderAndStats();
   startLearningPresence();
   await loadCloudWordbook();
+  await loadCloudLearnedWords();
 }
 
 // ---------- 初始化 ----------

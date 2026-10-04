@@ -171,6 +171,7 @@
             <span id="cardCounter">1 / 9</span>
             <button id="nextCardBtn">下一个 ➡</button>
           </div>
+          <button id="completeCurrentWordBtn" class="review-current-btn" type="button">学会了，移到已学单词</button>
           <label class="current-wordbook-toggle" for="currentVocabNewWord">
             <input id="currentVocabNewWord" type="checkbox" />
             <span>加入生词本</span>
@@ -197,6 +198,16 @@
           <button id="clearWordbookBtn" class="mini-btn danger-outline-btn" type="button">清空生词本</button>
         </div>
         <div id="wordbookList" class="wordbook-list"></div>
+        <section class="learned-section">
+          <div class="learned-section-heading">
+            <div>
+              <h3>已学单词</h3>
+              <p>完成生词复习后，单词会从生词本移到这里。点击单词可查看变格、变位和过去式。</p>
+            </div>
+            <span id="learnedWordCount">0 个</span>
+          </div>
+          <div id="learnedWordList" class="learned-word-list"></div>
+        </section>
       </section>
 
       <!-- 单词查询 -->
