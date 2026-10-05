@@ -6,9 +6,9 @@
   "scripts": {
     "cap:prepare": "node tools/prepare-capacitor.js",
     "cap:init": "cap init",
-    "cap:add:android": "pnpm run cap:prepare && cap add android",
-    "cap:sync": "pnpm run cap:prepare && cap sync",
-    "cap:open:android": "pnpm run cap:sync && cap open android"
+    "cap:add:android": "npm run cap:prepare && cap add android",
+    "cap:sync": "npm run cap:prepare && cap sync",
+    "cap:open:android": "npm run cap:sync && cap open android"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",

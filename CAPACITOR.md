@@ -7,8 +7,8 @@
 在项目根目录运行：
 
 ```bash
-pnpm install
-pnpm run cap:sync
+npm install
+npm run cap:sync
 ```
 
 `cap:sync` 会把根目录中的网页文件复制到 `www/`，再同步到 Android 工程。
@@ -18,7 +18,7 @@ pnpm run cap:sync
 需要先安装 Android Studio、Android SDK 和 JDK。然后运行：
 
 ```bash
-pnpm run cap:open:android
+npm run cap:open:android
 ```
 
 也可以直接在 Android Studio 中打开项目里的 `android/` 文件夹。
