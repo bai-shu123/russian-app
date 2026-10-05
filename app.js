@@ -836,13 +836,13 @@ function renderCourseDetail() {
     return;
   }
 
-  let vocabHtml = '<table class="vocab-table">';
+  let vocabHtml = '<div class="vocab-table-scroll"><table class="vocab-table">';
   vocabHtml += '<tr><th>俄语</th><th>词性</th><th>释义</th><th>生词</th><th></th></tr>';
   lesson.vocab.forEach(w => {
     const word = { ru: w.ru, displayRu: addStressMarks(w.ru), zh: w.zh, pos: w.pos, bookTitle: currentBook().title, lessonId: lesson.id, source: '课程' };
     vocabHtml += '<tr><td class="vocab-ru">' + addStressMarks(w.ru) + '</td><td class="vocab-pos">' + w.pos + '</td><td>' + w.zh + '</td><td>' + newWordCheckbox(word) + '</td><td><button class="mini-speak-btn" data-word="' + w.ru.replace(/"/g, '&quot;') + '">🔊</button></td></tr>';
   });
-  vocabHtml += '</table>';
+  vocabHtml += '</table></div>';
 
   let grammarHtml = '';
   lesson.grammar.forEach(g => {

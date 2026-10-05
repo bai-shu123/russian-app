@@ -1953,6 +1953,13 @@ main {
   font-size: 0.9rem;
 }
 
+.vocab-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .vocab-table th {
   background: var(--blue-soft);
   color: var(--blue);
@@ -2793,4 +2800,607 @@ textarea:focus-visible {
 
 footer {
   background: #e8f3f9;
+}
+
+/* ==================== Mobile layout repair ==================== */
+@media (max-width: 760px) {
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .app-header {
+    padding: calc(18px + env(safe-area-inset-top)) 16px 18px;
+  }
+
+  .app-header::after {
+    right: 16px;
+    width: 88px;
+  }
+
+  .header-inner {
+    width: 100%;
+    gap: 14px;
+  }
+
+  .header-copy,
+  .header-right {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .app-kicker {
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+  }
+
+  .app-header h1 {
+    font-size: 1.55rem;
+    overflow-wrap: anywhere;
+  }
+
+  .app-header h1 span {
+    display: block;
+    margin: 5px 0 0;
+    font-size: 0.58em;
+  }
+
+  .app-subtitle {
+    max-width: 30ch;
+    font-size: 0.8rem;
+  }
+
+  .header-right {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    gap: 7px;
+    align-items: center;
+  }
+
+  .streak-badge,
+  .user-badge,
+  .logout-btn {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .streak-badge,
+  .user-badge {
+    padding: 7px 8px;
+    text-align: center;
+    font-size: 0.68rem;
+  }
+
+  .logout-btn {
+    margin-left: 0;
+    padding: 7px 9px;
+    font-size: 0.7rem;
+  }
+
+  .tabs {
+    position: sticky;
+    top: 0;
+    gap: 4px;
+    padding: 8px 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab-btn,
+  .grammar-nav-link {
+    padding: 8px 10px;
+    font-size: 0.78rem;
+  }
+
+  .tab-btn.active::after {
+    display: none;
+  }
+
+  .tab-btn.active {
+    border-bottom: 3px solid var(--primary);
+  }
+
+  main {
+    width: 100%;
+    max-width: none;
+    padding: 18px 12px 34px;
+  }
+
+  .tab-panel {
+    min-width: 0;
+  }
+
+  .book-selector-panel,
+  .unit-selector-panel,
+  .course-detail,
+  .word-search-panel,
+  .feedback-form,
+  .feedback-list-panel,
+  .admin-dashboard-section,
+  #quizResult {
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .book-selector-panel {
+    display: block;
+    padding-left: 21px;
+  }
+
+  .book-selector-panel h2 {
+    font-size: 1.22rem;
+    overflow-wrap: anywhere;
+  }
+
+  .book-selector-panel p,
+  .word-search-heading p,
+  .section-desc {
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
+
+  .book-selector-actions,
+  .unit-selector-actions,
+  .book-selector-mini {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .book-selector-actions {
+    margin-top: 13px;
+  }
+
+  .book-selector-btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .course-layout {
+    display: block;
+  }
+
+  .course-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .course-list-item {
+    min-width: 0;
+    min-height: 44px;
+    padding: 9px 8px;
+    font-size: 0.78rem;
+  }
+
+  .course-num {
+    width: 20px;
+    height: 20px;
+    font-size: 0.68rem;
+  }
+
+  .course-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .course-detail {
+    overflow: hidden;
+    padding-top: 21px;
+  }
+
+  .course-title {
+    font-size: 1.16rem;
+    overflow-wrap: anywhere;
+  }
+
+  .course-subtitle {
+    margin-bottom: 14px;
+    font-size: 0.82rem;
+  }
+
+  .course-section {
+    margin-bottom: 22px;
+  }
+
+  .course-section h3 {
+    font-size: 0.88rem;
+  }
+
+  .vocab-table {
+    display: table;
+    width: 100%;
+    min-width: 620px;
+    max-width: none;
+    white-space: nowrap;
+  }
+
+  .vocab-table-scroll {
+    margin-right: -2px;
+    padding-bottom: 4px;
+  }
+
+  .vocab-table th,
+  .vocab-table td {
+    padding: 8px 7px;
+    font-size: 0.78rem;
+  }
+
+  .grammar-examples li,
+  .text-line {
+    min-width: 0;
+  }
+
+  .text-ru,
+  .text-zh,
+  .ex-ru,
+  .ex-zh {
+    overflow-wrap: anywhere;
+  }
+
+  .unit-selector-header {
+    display: block;
+  }
+
+  .unit-selector-title {
+    display: block;
+    max-width: none;
+    margin-bottom: 12px;
+    font-size: 0.84rem;
+  }
+
+  .unit-selector-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .unit-selector-actions .book-selector-mini {
+    flex: 1 1 100%;
+  }
+
+  .unit-selector-actions .mini-btn {
+    flex: 1 1 calc(50% - 3px);
+    min-height: 36px;
+  }
+
+  .unit-checkbox-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .unit-checkbox-item {
+    min-width: 0;
+    padding: 8px 7px;
+    font-size: 0.76rem;
+  }
+
+  .unit-checkbox-item span {
+    overflow-wrap: anywhere;
+  }
+
+  .vocab-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+    max-width: 560px;
+    margin: 14px auto;
+    padding: 10px;
+  }
+
+  .vocab-controls .toggle-option {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .vocab-controls #speakAllBtn {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+    white-space: nowrap;
+  }
+
+  .vocab-new-word-count {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  #vocabCardArea {
+    width: 100%;
+    max-width: 560px;
+  }
+
+  .flashcard-wrap {
+    width: 100%;
+    padding: 15px;
+  }
+
+  .flashcard {
+    width: 100%;
+    height: min(58vw, 220px);
+    min-height: 190px;
+  }
+
+  .flashcard-front,
+  .flashcard-back {
+    padding: 16px;
+    font-size: clamp(1.35rem, 7vw, 1.8rem);
+    overflow-wrap: anywhere;
+  }
+
+  .flashcard-actions {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .flashcard-actions button {
+    width: 100%;
+    padding: 8px 5px;
+    font-size: 0.75rem;
+  }
+
+  .flashcard-actions span {
+    align-self: center;
+    font-size: 0.76rem;
+    white-space: nowrap;
+  }
+
+  .review-current-btn {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .word-search-heading h2,
+  .wordbook-header h2,
+  .feedback-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .word-search-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .word-search-row button {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .word-result-top,
+  .feedback-item-top {
+    align-items: flex-start;
+  }
+
+  .word-result-top > div:first-child,
+  .feedback-item-top > div:first-child {
+    min-width: 0;
+  }
+
+  .word-result-top h3,
+  .feedback-item h4 {
+    overflow-wrap: anywhere;
+  }
+
+  .word-result-actions {
+    gap: 6px;
+  }
+
+  .word-result-meta,
+  .feedback-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .word-form-row {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: 7px;
+    padding: 8px;
+  }
+
+  .word-form-row strong {
+    overflow-wrap: anywhere;
+  }
+
+  .wordbook-header,
+  .feedback-header,
+  .admin-dashboard-header {
+    display: block;
+  }
+
+  .wordbook-header > div:last-child,
+  .feedback-header > .feedback-status {
+    display: block;
+    margin-top: 12px;
+  }
+
+  .wordbook-summary,
+  .wordbook-sync-status {
+    display: inline-block;
+  }
+
+  .wordbook-sync-status {
+    margin-left: 6px;
+    text-align: left;
+  }
+
+  .wordbook-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .wordbook-actions .auth-primary-btn {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .wordbook-actions .mini-btn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .wordbook-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 11px;
+    align-items: stretch;
+  }
+
+  .wordbook-item > div:first-child {
+    min-width: 0;
+  }
+
+  .wordbook-item h3,
+  .wordbook-item p,
+  .wordbook-item small {
+    overflow-wrap: anywhere;
+  }
+
+  .wordbook-item-actions,
+  .learned-word-actions {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
+    width: 100%;
+  }
+
+  .wordbook-item-actions button,
+  .learned-word-actions button {
+    min-width: 0;
+    width: 100%;
+    padding: 8px 5px;
+    font-size: 0.74rem;
+  }
+
+  .learned-section-heading {
+    display: block;
+  }
+
+  .learned-section-heading > span {
+    display: block;
+    margin-top: 5px;
+  }
+
+  .learned-word-toggle {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .learned-word-toggle-label {
+    max-width: 8em;
+    text-align: right;
+    white-space: normal;
+  }
+
+  .feedback-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .feedback-form,
+  .feedback-list-panel,
+  .admin-dashboard-section {
+    width: 100%;
+  }
+
+  .form-row input,
+  .form-row select,
+  .form-row textarea,
+  .admin-reply-input {
+    max-width: 100%;
+  }
+
+  .admin-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .admin-summary-card {
+    min-width: 0;
+    padding: 13px 8px;
+  }
+
+  .admin-summary-card strong {
+    font-size: 1.45rem;
+  }
+
+  .admin-summary-card span {
+    font-size: 0.72rem;
+  }
+
+  .admin-learning-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quiz-count-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .quiz-count-row span {
+    grid-column: 1 / -1;
+  }
+
+  .quiz-count-row input {
+    width: 100%;
+  }
+
+  .progress-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .stat-card {
+    min-width: 0;
+    padding: 16px 11px;
+  }
+
+  .stat-num {
+    font-size: 1.55rem;
+  }
+
+  .stat-label {
+    overflow-wrap: anywhere;
+    font-size: 0.74rem;
+  }
+
+  footer {
+    padding: 15px 12px calc(15px + env(safe-area-inset-bottom));
+  }
+
+  footer p {
+    margin: 0;
+    font-size: 0.74rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .header-right {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .streak-badge {
+    grid-column: 1 / -1;
+  }
+
+  .course-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wordbook-item-actions,
+  .learned-word-actions {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .wordbook-item-actions .mini-speak-btn,
+  .learned-word-actions .mini-speak-btn {
+    grid-column: 1 / -1;
+  }
 }
