@@ -1,0 +1,23 @@
+{
+  "name": "russian-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "俄语学习移动应用与网页端",
+  "scripts": {
+    "cap:prepare": "node tools/prepare-capacitor.js",
+    "cap:init": "cap init",
+    "cap:add:android": "pnpm run cap:prepare && cap add android",
+    "cap:sync": "pnpm run cap:prepare && cap sync",
+    "cap:open:android": "pnpm run cap:sync && cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/splash-screen": "7.0.0",
+    "@capacitor/status-bar": "7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3",
+    "typescript": "^5.8.3"
+  }
+}
