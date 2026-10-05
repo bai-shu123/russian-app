@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const OpenCC = require('opencc-js');
 
 const root = path.resolve(__dirname, '..');
 const sourcePath = path.join(root, 'assets', 'dictionary', 'zho-rus', 'zho-rus.tei');
@@ -29,6 +30,18 @@ const morphologySources = [
 const existingMeta = fs.existsSync(metaPath)
   ? JSON.parse(fs.readFileSync(metaPath, 'utf8'))
   : {};
+const toSimplified = OpenCC.Converter({ from: 'tw', to: 'cn' });
+const preferredMeanings = {
+  дом: ['家', '房子'], книга: ['书'], идти: ['去', '走'], экзамен: ['考试'], школа: ['学校'],
+  семья: ['家庭', '家人'], время: ['时间'], говорить: ['说'], мать: ['母亲'], дочь: ['女儿'],
+  люди: ['人们'], человек: ['人', '人类'], яблоко: ['苹果'], друг: ['朋友'], красивый: ['漂亮的', '美丽的'], хороший: ['好的'],
+  работа: ['工作'], университет: ['大学'], студент: ['学生'], преподаватель: ['教师'], словарь: ['词典'],
+  урок: ['课'], задание: ['作业', '任务'], вопрос: ['问题'], ответ: ['回答'], читать: ['读'], писать: ['写'],
+  слушать: ['听'], понимать: ['理解'], знать: ['知道'], хотеть: ['想要'], мочь: ['能', '可以'],
+  любить: ['喜欢'], жить: ['居住', '生活'], купить: ['买'], ждать: ['等待'], приходить: ['来', '到来'],
+  ехать: ['乘车去'], город: ['城市'], день: ['天', '一天'], вода: ['水'], дверь: ['门'],
+  студентка: ['女学生'], учиться: ['学习']
+};
 
 function decodeXml(value) {
   return String(value || '')
@@ -40,6 +53,38 @@ function decodeXml(value) {
     .replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function cleanChineseMeanings(values) {
+  const meanings = [];
+  const seen = new Set();
+  (Array.isArray(values) ? values : [values]).forEach(value => {
+    const simplified = toSimplified(String(value || ''));
+    const chunks = simplified.match(/[\u3400-\u9fff]+/g) || [];
+    chunks.forEach(chunk => {
+      const meaning = chunk.trim();
+      if (!meaning || seen.has(meaning)) return;
+      seen.add(meaning);
+      meanings.push(meaning);
+    });
+  });
+  return meanings.slice(0, 8);
+}
+
+function cleanDictionaryEntries(entries) {
+  return entries
+    .map(entry => {
+      const key = normalizeRussian(entry.ru);
+      const zh = preferredMeanings[key] || cleanChineseMeanings(entry.zh);
+      return {
+        ...entry,
+        zh,
+        // The reversed supplement tags almost every row as a noun. Do not
+        // expose that unreliable POS to the UI or to morphology generation.
+        pos: entry.source === 'WikDict direct' ? entry.pos : []
+      };
+    })
+    .filter(entry => entry.zh.length > 0);
 }
 
 function hasCyrillic(value) {
@@ -269,7 +314,7 @@ supplementData.forEach(entry => {
   existing.zh = [...meanings].slice(0, 12);
 });
 
-const finalData = [...merged.values()]
+const finalData = cleanDictionaryEntries([...merged.values()])
   .sort((a, b) => a.ru.localeCompare(b.ru, 'ru'));
 
 const existingFormIndex = fs.existsSync(formIndexPath)

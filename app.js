@@ -899,7 +899,11 @@ let externalDictionaryFormsByLemma = null;
 let cachedCourseExampleCorpus = null;
 
 function normalizeSearchText(value) {
-  return removeStressMarks(String(value || '').toLowerCase().trim());
+  return removeStressMarks(String(value || '').toLowerCase().trim())
+    .replace(/[學习習語气氣後后時时會会來来個个們们這这麼么與与對对為为從从說说車车門门開开問问讀读買买見见聽听話话變变詞词書书國国]/g, char => ({
+      學: '学', 習: '习', 語: '语', 氣: '气', 後: '后', 時: '时', 會: '会', 來: '来', 個: '个', 們: '们', 這: '这', 麼: '么', 與: '与', 對: '对', 為: '为', 從: '从', 說: '说', 車: '车', 門: '门', 開: '开', 問: '问', 讀: '读', 買: '买', 見: '见', 聽: '听', 話: '话', 變: '变', 詞: '词', 書: '书', 國: '国'
+    }[char] || char))
+    .replace(/ё/g, 'е');
 }
 
 function getSearchableEntries() {
@@ -945,8 +949,17 @@ async function loadExternalDictionary() {
       fetch('assets/dictionary/ru-form-index.json').then(response => response.ok ? response.json() : {})
     ]).then(([entries, meta, formIndex]) => {
       externalDictionaryMeta = meta;
-      externalDictionaryFormIndex = formIndex || {};
+      externalDictionaryFormIndex = {};
       externalDictionaryFormsByLemma = new Map();
+      Object.entries(formIndex || {}).forEach(([form, lemmas]) => {
+        const normalizedForm = normalizeSearchText(form);
+        if (!normalizedForm) return;
+        if (!externalDictionaryFormIndex[normalizedForm]) externalDictionaryFormIndex[normalizedForm] = [];
+        const normalizedLemmas = Array.isArray(lemmas) ? lemmas.map(lemma => normalizeSearchText(lemma)).filter(Boolean) : [];
+        normalizedLemmas.forEach(lemma => {
+          if (!externalDictionaryFormIndex[normalizedForm].includes(lemma)) externalDictionaryFormIndex[normalizedForm].push(lemma);
+        });
+      });
       Object.entries(externalDictionaryFormIndex).forEach(([form, lemmas]) => {
         (Array.isArray(lemmas) ? lemmas : []).forEach(lemma => {
           if (!externalDictionaryFormsByLemma.has(lemma)) externalDictionaryFormsByLemma.set(lemma, new Set());
@@ -984,24 +997,30 @@ function mapDictionaryPos(posValues) {
 function russianSearchVariants(value) {
   const needle = normalizeSearchText(value);
   const variants = new Set([needle]);
+  const irregular = {
+    люди: 'человек', людей: 'человек', людьми: 'человек', людям: 'человек', людях: 'человек',
+    дети: 'ребёнок', детей: 'ребёнок', детьми: 'ребёнок', детям: 'ребёнок', детях: 'ребёнок',
+    идём: 'идти', идем: 'идти', идёшь: 'идти', идешь: 'идти', идёт: 'идти', идет: 'идти', идут: 'идти',
+    еду: 'ехать', едешь: 'ехать', едет: 'ехать', едем: 'ехать', едете: 'ехать', едут: 'ехать'
+  };
+  if (irregular[needle]) variants.add(normalizeSearchText(irregular[needle]));
+
   const endings = [
-    ['ами', 'а'], ['ями', 'я'], ['ого', 'ый'], ['его', 'ий'],
-    ['ому', 'ый'], ['ему', 'ий'], ['ыми', 'ый'], ['ими', 'ий'],
-    ['ая', 'ый'], ['яя', 'ий'], ['ое', 'ый'], ['ее', 'ий'],
-    ['ов', ''], ['ев', ''], ['ей', ''], ['ам', 'а'], ['ям', 'я'],
-    ['ах', 'а'], ['ях', 'я'], ['ом', ''], ['ем', ''], ['ой', 'а'],
-    ['ей', 'я'], ['ы', 'а'], ['и', 'а'], ['у', 'а'], ['ю', 'я'],
-    ['е', 'а'], ['а', 'а'], ['я', 'я'], ['ешь', 'ать'], ['ете', 'ать'],
-    ['ем', 'ать'], ['ете', 'ать'], ['ют', 'ать'], ['ишь', 'ить'],
-    ['ите', 'ить'], ['им', 'ить'], ['ят', 'ить'], ['ит', 'ить']
+    ['ами', ['а', 'я']], ['ями', ['я', 'а']], ['ого', ['ый', 'ий']], ['его', ['ий', 'ый']],
+    ['ому', ['ый', 'ой']], ['ему', ['ий', 'ой']], ['ыми', ['ый', 'ой']], ['ими', ['ий', 'ой']],
+    ['ая', ['ый', 'ой']], ['яя', ['ий']], ['ое', ['ый', 'ой']], ['ее', ['ий']],
+    ['ов', ['']], ['ев', ['']], ['ей', ['я', 'ь']], ['ам', ['а', 'я']], ['ям', ['я']],
+    ['ах', ['а', 'я']], ['ях', ['я']], ['ом', ['']], ['ем', ['', 'ь']], ['ой', ['а', 'я', 'ый']],
+    ['ы', ['а']], ['и', ['а', 'я', 'ь']], ['у', ['а', 'я']], ['ю', ['я', 'ь']],
+    ['е', ['а', 'я', 'о', 'ь']], ['а', ['']], ['я', ['']],
+    ['ешь', ['ать']], ['ете', ['ать']], ['ем', ['ать']], ['ют', ['ать']], ['ишь', ['ить']],
+    ['ите', ['ить']], ['им', ['ить']], ['ят', ['ить']], ['ит', ['ить']]
   ];
-  endings.forEach(([ending, replacement]) => {
+  endings.forEach(([ending, replacements]) => {
     if (!needle.endsWith(ending)) return;
     const stem = needle.slice(0, -ending.length);
-    if (stem.length >= 3) {
-      variants.add(stem + replacement);
-      variants.add(stem);
-    }
+    if (stem.length < 3) return;
+    replacements.forEach(replacement => variants.add(stem + replacement));
   });
   return [...variants];
 }
@@ -1010,44 +1029,58 @@ function searchExternalDictionary(entries, query, limit) {
   const needle = normalizeSearchText(query);
   if (!needle) return [];
   const variants = new Set(russianSearchVariants(query));
-  const exact = [];
-  const indexedExact = [];
-  const indexedVariant = [];
-  const variantExact = [];
-  const prefix = [];
-  const contains = [];
-  const zhMatches = [];
   const byKey = new Map(entries.map(entry => [entry.dictionaryKey || normalizeSearchText(entry.ru), entry]));
-  const addIndexed = (form, target) => {
+  const ranked = new Map();
+  const addResult = (entry, rank) => {
+    if (!entry) return;
+    const key = entry.dictionaryKey || normalizeSearchText(entry.ru);
+    const oldRank = ranked.get(key);
+    if (oldRank === undefined || rank < oldRank) ranked.set(key, rank);
+  };
+  const addIndexed = (form, rank) => {
     const lemmaKeys = Array.isArray(externalDictionaryFormIndex && externalDictionaryFormIndex[form])
       ? externalDictionaryFormIndex[form]
       : [];
     lemmaKeys.forEach(lemmaKey => {
-      const entry = byKey.get(lemmaKey);
-      if (entry && !target.some(item => item.ru === entry.ru)) target.push(entry);
+      addResult(byKey.get(normalizeSearchText(lemmaKey)), rank);
     });
   };
-  addIndexed(needle, indexedExact);
-  [...variants].filter(variant => variant !== needle).forEach(variant => addIndexed(variant, indexedVariant));
+
+  const indexedLemmaKeys = new Set(Array.isArray(externalDictionaryFormIndex && externalDictionaryFormIndex[needle])
+    ? externalDictionaryFormIndex[needle].map(item => normalizeSearchText(item))
+    : []);
+  addIndexed(needle, 0);
   for (const entry of entries) {
     const ru = entry.dictionaryKey || normalizeSearchText(entry.ru);
     const zh = normalizeSearchText(entry.zh);
-    if (ru === needle) exact.push(entry);
-    else if (variants.has(ru)) variantExact.push(entry);
-    else if (ru.startsWith(needle)) prefix.push(entry);
-    else if (ru.includes(needle)) contains.push(entry);
-    else if (zh.includes(needle)) zhMatches.push(entry);
+    if (ru === needle && !indexedLemmaKeys.size) addResult(entry, 0);
+    else if (variants.has(ru)) addResult(entry, 4);
+    else if (ru.startsWith(needle)) addResult(entry, 6);
+    else if (ru.includes(needle)) addResult(entry, 7);
+    const meanings = String(entry.zh || '').split(/[；;、,，]/).map(item => item.trim()).filter(Boolean);
+    if (meanings.some(meaning => normalizeSearchText(meaning) === needle)) addResult(entry, 1);
+    else if (meanings.some(meaning => normalizeSearchText(meaning).startsWith(needle))) addResult(entry, 2);
+    else if (zh.includes(needle)) addResult(entry, 3);
   }
-  return [...exact, ...indexedExact, ...indexedVariant, ...variantExact, ...prefix, ...contains, ...zhMatches]
-    .filter((entry, index, list) => list.findIndex(item => (item.dictionaryKey || normalizeSearchText(item.ru)) === (entry.dictionaryKey || normalizeSearchText(entry.ru))) === index)
+  [...variants].filter(variant => variant !== needle).forEach(variant => addIndexed(variant, 2));
+  return [...ranked.entries()]
+    .sort((a, b) => a[1] - b[1] || a[0].length - b[0].length)
+    .map(([key]) => byKey.get(key))
+    .filter(Boolean)
     .slice(0, limit);
 }
 
 async function searchWordsLarge(query) {
-  const courseResults = searchWords(query).map(entry => ({ ...entry, source: 'course' }));
+  const courseResults = searchWords(query).map(entry => ({ ...entry, source: 'course', searchRank: 0 }));
   const dictionary = await loadExternalDictionary();
-  const dictionaryResults = searchExternalDictionary(dictionary, query, Math.max(0, 18 - courseResults.length));
-  return [...courseResults, ...dictionaryResults].slice(0, 18);
+  const dictionaryResults = searchExternalDictionary(dictionary, query, 18).map((entry, index) => ({ ...entry, searchRank: index + 1 }));
+  const combined = new Map();
+  [...courseResults, ...dictionaryResults].forEach(entry => {
+    const key = normalizeSearchText(entry.ru);
+    const existing = combined.get(key);
+    if (!existing || entry.searchRank < existing.searchRank) combined.set(key, entry);
+  });
+  return [...combined.values()].sort((a, b) => a.searchRank - b.searchRank).slice(0, 18);
 }
 
 function isSingleRussianWord(value) {
@@ -1171,8 +1204,34 @@ function adjectiveRows(word) {
   return { title: '形容词变格（阳性基础形式）', rows };
 }
 
+const trustedNounForms = {
+  книга: [['第一格 主格', 'кни́га'], ['第二格 属格', 'кни́ги'], ['第三格 与格', 'кни́ге'], ['第四格 宾格', 'кни́гу'], ['第五格 工具格', 'кни́гой'], ['第六格 前置格', 'кни́ге'], ['复数第一格', 'кни́ги'], ['复数第二格 属格', 'кни́г']],
+  дом: [['第一格 主格', 'дом'], ['第二格 属格', 'до́ма'], ['第三格 与格', 'до́му'], ['第四格 宾格', 'дом'], ['第五格 工具格', 'до́мом'], ['第六格 前置格', 'до́ме'], ['复数第一格', 'дома́'], ['复数第二格 属格', 'до́мов']],
+  стол: [['第一格 主格', 'сто́л'], ['第二格 属格', 'сто́ла'], ['第三格 与格', 'сто́лу'], ['第四格 宾格', 'сто́л'], ['第五格 工具格', 'сто́лом'], ['第六格 前置格', 'сто́ле'], ['复数第一格', 'столы́'], ['复数第二格 属格', 'столо́в']],
+  студент: [['第一格 主格', 'студе́нт'], ['第二格 属格', 'студе́нта'], ['第三格 与格', 'студе́нту'], ['第四格 宾格', 'студе́нта'], ['第五格 工具格', 'студе́нтом'], ['第六格 前置格', 'студе́нте'], ['复数第一格', 'студе́нты'], ['复数第二格 属格', 'студе́нтов']],
+  экзамен: [['第一格 主格', 'экза́мен'], ['第二格 属格', 'экза́мена'], ['第三格 与格', 'экза́мену'], ['第四格 宾格', 'экза́мен'], ['第五格 工具格', 'экза́меном'], ['第六格 前置格', 'экза́мене'], ['复数第一格', 'экза́мены'], ['复数第二格 属格', 'экза́менов']],
+  семья: [['第一格 主格', 'семья́'], ['第二格 属格', 'семьи́'], ['第三格 与格', 'семье́'], ['第四格 宾格', 'семью́'], ['第五格 工具格', 'семьёй'], ['第六格 前置格', 'семье́'], ['复数第一格', 'семьи́'], ['复数第二格 属格', 'семе́й']],
+  школа: [['第一格 主格', 'шко́ла'], ['第二格 属格', 'шко́лы'], ['第三格 与格', 'шко́ле'], ['第四格 宾格', 'шко́лу'], ['第五格 工具格', 'шко́лой'], ['第六格 前置格', 'шко́ле'], ['复数第一格', 'шко́лы'], ['复数第二格 属格', 'шко́л']],
+  время: [['第一格 主格', 'вре́мя'], ['第二格 属格', 'вре́мени'], ['第三格 与格', 'вре́мени'], ['第四格 宾格', 'вре́мя'], ['第五格 工具格', 'вре́менем'], ['第六格 前置格', 'вре́мени'], ['复数第一格', 'времена́'], ['复数第二格 属格', 'времён']],
+  день: [['第一格 主格', 'де́нь'], ['第二格 属格', 'дня́'], ['第三格 与格', 'дню́'], ['第四格 宾格', 'де́нь'], ['第五格 工具格', 'днём'], ['第六格 前置格', 'дне́'], ['复数第一格', 'дни́'], ['复数第二格 属格', 'дне́й']],
+  вода: [['第一格 主格', 'вода́'], ['第二格 属格', 'воды́'], ['第三格 与格', 'воде́'], ['第四格 宾格', 'воду́'], ['第五格 工具格', 'водо́й'], ['第六格 前置格', 'воде́'], ['复数第一格', 'во́ды'], ['复数第二格 属格', 'во́д']],
+  друг: [['第一格 主格', 'друг'], ['第二格 属格', 'дру́га'], ['第三格 与格', 'дру́гу'], ['第四格 宾格', 'дру́га'], ['第五格 工具格', 'дру́гом'], ['第六格 前置格', 'дру́ге'], ['复数第一格', 'друзья́'], ['复数第二格 属格', 'друзéй']],
+  дочь: [['第一格 主格', 'до́чь'], ['第二格 属格', 'до́чери'], ['第三格 与格', 'до́чери'], ['第四格 宾格', 'до́чь'], ['第五格 工具格', 'до́черью'], ['第六格 前置格', 'до́чери'], ['复数第一格', 'до́чери'], ['复数第二格 属格', 'дочере́й']]
+};
+
+const trustedVerbRows = {
+  читать: [['я', 'чита́ю'], ['ты', 'чита́ешь'], ['он/она', 'чита́ет'], ['мы', 'чита́ем'], ['вы', 'чита́ете'], ['они', 'чи́тают'], ['过去时 阳性', 'чита́л'], ['过去时 阴性', 'чита́ла'], ['过去时 中性', 'чита́ло'], ['过去时 复数', 'чита́ли']],
+  писать: [['я', 'пишу́'], ['ты', 'пи́шешь'], ['он/она', 'пи́шет'], ['мы', 'пи́шем'], ['вы', 'пи́шете'], ['они', 'пи́шут'], ['过去时 阳性', 'писа́л'], ['过去时 阴性', 'писа́ла'], ['过去时 中性', 'писа́ло'], ['过去时 复数', 'писа́ли']],
+  говорить: [['я', 'говорю́'], ['ты', 'говори́шь'], ['он/она', 'говори́т'], ['мы', 'говори́м'], ['вы', 'говори́те'], ['они', 'говоря́т'], ['过去时 阳性', 'говори́л'], ['过去时 阴性', 'говори́ла'], ['过去时 中性', 'говори́ло'], ['过去时 复数', 'говори́ли']],
+  жить: [['я', 'живу́'], ['ты', 'живёшь'], ['он/она', 'живёт'], ['мы', 'живём'], ['вы', 'живёте'], ['они', 'живу́т'], ['过去时 阳性', 'жи́л'], ['过去时 阴性', 'жила́'], ['过去时 中性', 'жило́'], ['过去时 复数', 'жи́ли']],
+  учиться: [['я', 'учу́сь'], ['ты', 'у́чишься'], ['он/она', 'у́чится'], ['мы', 'у́чимся'], ['вы', 'у́читесь'], ['они', 'у́чатся'], ['过去时 阳性', 'учи́лся'], ['过去时 阴性', 'учи́лась'], ['过去时 中性', 'учи́лось'], ['过去时 复数', 'учи́лись']],
+  хотеть: [['я', 'хочу́'], ['ты', 'хо́чешь'], ['он/она', 'хо́чет'], ['мы', 'хоти́м'], ['вы', 'хоти́те'], ['они', 'хо́тят'], ['过去时 阳性', 'хоте́л'], ['过去时 阴性', 'хоте́ла'], ['过去时 中性', 'хоте́ло'], ['过去时 复数', 'хоте́ли']],
+  мочь: [['я', 'могу́'], ['ты', 'мо́жешь'], ['он/она', 'мо́жет'], ['мы', 'мо́жем'], ['вы', 'мо́жете'], ['они', 'мо́гут'], ['过去时 阳性', 'мог'], ['过去时 阴性', 'могла́'], ['过去时 中性', 'могло́'], ['过去时 复数', 'могли́']]
+};
+
 function verbRows(word) {
   const lower = normalizeSearchText(word);
+  if (trustedVerbRows[lower]) return { title: '动词现在时与过去时（常用形式）', rows: trustedVerbRows[lower] };
   if (!isSingleRussianWord(lower)) return null;
   const irregular = {
     идти: [
@@ -1237,12 +1296,14 @@ const pronounCaseForms = {
 
 function getFormTable(entry) {
   const lower = normalizeSearchText(entry.ru);
+  if (trustedNounForms[lower]) return { title: '名词六格（常用形式）', rows: trustedNounForms[lower] };
   const pos = entry.pos || '';
   if (pronounCaseForms[lower]) return { title: '人称代词各格', rows: pronounCaseForms[lower] };
   if (pos.includes('动词')) return verbRows(entry.ru);
   if (pos.includes('形容词')) return adjectiveRows(entry.ru);
   if (pos.includes('代词')) return adjectiveRows(entry.ru);
-  if (pos.includes('名词') || pos.includes('专名')) return nounCaseRows(entry.ru);
+  if (entry.source === 'course' && (pos.includes('名词') || pos.includes('专名'))) return nounCaseRows(entry.ru);
+  if (entry.source === 'course' && (pos.includes('动词') || pos.includes('形容词') || pos.includes('代词'))) return null;
   return null;
 }
 
