@@ -41,4 +41,4 @@ Build > Build Bundle(s) / APK(s) > Build APK(s)
 - GitHub Pages 网页地址仍然保持不变
 - Supabase 前端配置继续使用现有 publishable key
 
-如果以后修改了网页代码，重新运行 `pnpm run cap:sync` 即可把最新网页同步到 Android App。
+如果以后修改了网页代码，重新运行 `npm run cap:sync` 即可把最新网页同步到 Android App。
