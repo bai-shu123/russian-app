@@ -516,9 +516,17 @@
         finishQuestion(exercise, answer, 'correct', Math.max(1, session.hints), 'AI 复核为合理表达，已加入本地可接受答案。');
       } else if (data && data.verdict === 'partial') setFeedback('基本正确，但需要修改：' + (data.explanation || ''), 'review');
       else setFeedback('复核结果：' + esc(data && data.explanation || '当前表达仍需修改。'), 'wrong', true);
-    } catch (_) {
+    } catch (error) {
+      let detail = '';
+      try {
+        if (error && error.context && typeof error.context.json === 'function') {
+          const payload = await error.context.json();
+          detail = payload && (payload.explanation || payload.error || payload.message) || '';
+        }
+      } catch (_) {}
+      if (!detail && error && error.message && !/edge function returned a non-2xx/i.test(error.message)) detail = error.message;
       recordAttempt(exercise, answer, 'pending_review', session.hints, { review_status: 'pending' });
-      setFeedback('AI 暂不可用或额度已满。本次答案已进入待复核，不降低掌握度。', 'review');
+      setFeedback('AI 复核失败：' + esc(detail || '服务暂不可用或额度已满。') + '<br>本次答案已进入待复核，不降低掌握度。', 'review', true);
     }
   }
 
