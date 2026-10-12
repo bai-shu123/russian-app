@@ -29,8 +29,33 @@ create table if not exists public.feedback (
   content text not null,
   reply text,
   replied_at timestamptz,
+  status text not null default 'pending',
+  resolved_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+alter table public.feedback add column if not exists status text;
+alter table public.feedback add column if not exists resolved_at timestamptz;
+alter table public.feedback alter column status set default 'pending';
+update public.feedback
+set status = case when reply is not null then 'resolved' else 'pending' end
+where status is null or status not in ('pending', 'processing', 'resolved');
+update public.feedback
+set resolved_at = coalesce(resolved_at, replied_at)
+where status = 'resolved' and resolved_at is null;
+alter table public.feedback alter column status set not null;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.feedback'::regclass
+      and conname = 'feedback_status_check'
+  ) then
+    alter table public.feedback
+      add constraint feedback_status_check check (status in ('pending', 'processing', 'resolved'));
+  end if;
+end $$;
 
 create table if not exists public.learning_progress (
   user_id uuid primary key references auth.users(id) on delete cascade,
@@ -110,13 +135,24 @@ using (user_id = (select auth.uid()) or public.is_admin());
 drop policy if exists "feedback own insert" on public.feedback;
 create policy "feedback own insert" on public.feedback
 for insert to authenticated
-with check (user_id = (select auth.uid()));
+with check (
+  user_id = (select auth.uid())
+  and status = 'pending'
+  and reply is null
+  and replied_at is null
+  and resolved_at is null
+);
 
 drop policy if exists "feedback admin update" on public.feedback;
 create policy "feedback admin update" on public.feedback
 for update to authenticated
 using (public.is_admin())
 with check (public.is_admin());
+
+drop policy if exists "feedback admin delete" on public.feedback;
+create policy "feedback admin delete" on public.feedback
+for delete to authenticated
+using (public.is_admin());
 
 drop policy if exists "learning progress own or admin read" on public.learning_progress;
 create policy "learning progress own or admin read" on public.learning_progress
@@ -202,3 +238,6 @@ for each row execute procedure public.handle_new_user();
 update public.profiles
 set role = 'admin'
 where lower(username) in ('admin', 'baishu');
+
+-- Run training-schema.sql after this base schema to install the active-recall tables,
+-- version history, RLS policies, AI limits, collections, attempts, and audit log.

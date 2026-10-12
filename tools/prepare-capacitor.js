@@ -9,6 +9,7 @@ const webFiles = [
   'grammar.html',
   'style.css',
   'app.js',
+  'training.js',
   'auth.js',
   'course.js',
   'data.js',

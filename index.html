@@ -102,6 +102,7 @@
     </header>
 
     <nav class="tabs">
+      <button class="tab-btn training-nav-btn" data-tab="training">&#20170;&#26085;&#35757;&#32451;</button>
       <button class="tab-btn active" data-tab="course">课程</button>
       <button class="tab-btn" data-tab="alphabet">字母表</button>
       <button class="tab-btn" data-tab="vocab">词汇卡片</button>
@@ -115,6 +116,10 @@
     </nav>
 
     <main>
+      <section id="training" class="tab-panel">
+        <div id="trainingApp" class="training-app" aria-live="polite"></div>
+      </section>
+
       <!-- 课程 -->
       <section id="course" class="tab-panel active">
         <div class="book-selector-panel">
@@ -340,10 +345,14 @@
           <div class="admin-summary-card"><strong id="adminUserTotal">0</strong><span>注册账号</span></div>
           <div class="admin-summary-card"><strong id="adminOnlineTotal">0</strong><span>当前在线</span></div>
           <div class="admin-summary-card"><strong id="adminFeedbackTotal">0</strong><span>全部反馈</span></div>
-          <div class="admin-summary-card"><strong id="adminPendingTotal">0</strong><span>待回复</span></div>
+          <div class="admin-summary-card"><strong id="adminPendingTotal">0</strong><span>待处理</span></div>
         </div>
         <div id="adminAccessMessage" class="admin-access-message hidden"></div>
         <div id="adminDashboardContent">
+          <div class="admin-dashboard-section">
+            <div class="panel-heading"><h3>&#20027;&#21160;&#35757;&#32451;&#39064;&#24211;</h3><span id="trainingAdminSummary">...</span></div>
+            <div id="trainingAdminApp"></div>
+          </div>
           <div class="admin-dashboard-section">
             <div class="panel-heading"><h3>账号学习情况</h3><span id="adminUserCount">0 个账号</span></div>
             <div id="adminUserList" class="admin-user-list"></div>
@@ -366,6 +375,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="auth.js"></script>
+  <script src="training.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

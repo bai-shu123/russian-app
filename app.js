@@ -675,7 +675,19 @@ function removeLearnedWord(ru) {
 // ---------- 留言反馈 ----------
 const FEEDBACK_KEY = 'ru_learning_feedback_v1';
 function escapeFeedbackHtml(value) { return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;'); }
-function formatFeedbackTime(timestamp) { return new Date(timestamp).toLocaleString('zh-CN', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+const FEEDBACK_STATUSES = {
+  pending: { label: '待处理', description: '我们会认真阅读你的留言。' },
+  processing: { label: '处理中', description: '管理员正在查看并处理这条留言。' },
+  resolved: { label: '已解决', description: '这条留言已完成处理。' }
+};
+function normalizeFeedbackStatus(item) {
+  if (item && FEEDBACK_STATUSES[item.status]) return item.status;
+  return item && item.reply ? 'resolved' : 'pending';
+}
+function formatFeedbackTime(timestamp) {
+  if (!timestamp) return '时间未知';
+  return new Date(timestamp).toLocaleString('zh-CN', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 function formatAdminTime(timestamp) {
   if (!timestamp) return '暂无记录';
   return new Date(timestamp).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -687,9 +699,17 @@ async function loadFeedback() {
 }
 function renderFeedbackCard(item, isAdminView) {
   const replied = Boolean(item.reply);
-  const replyHtml = replied ? '<div class="feedback-reply"><strong>管理员回复</strong><p>' + escapeFeedbackHtml(item.reply) + '</p><time>' + formatFeedbackTime(item.replied_at) + '</time></div>' : '<div class="feedback-waiting">我们会认真阅读你的留言。</div>';
-  const adminReplyHtml = isAdminView && !replied ? '<div class="admin-reply-box"><textarea class="admin-reply-input" data-feedback-id="' + item.id + '" rows="3" maxlength="500" placeholder="写下给用户的回复"></textarea><button class="reply-btn" data-feedback-id="' + item.id + '">发送回复</button></div>' : '';
-  return '<article class="feedback-item"><div class="feedback-item-top"><div><span class="feedback-type">' + escapeFeedbackHtml(item.feedback_type) + '</span><h4>' + escapeFeedbackHtml(item.title) + '</h4></div><span class="feedback-badge ' + (replied ? 'replied' : 'pending') + '">' + (replied ? '已回复' : '待回复') + '</span></div><p class="feedback-content">' + escapeFeedbackHtml(item.content) + '</p><div class="feedback-meta"><span>' + (isAdminView ? '来自 ' + escapeFeedbackHtml(item.username) : '提交于') + '</span><time>' + formatFeedbackTime(item.created_at) + '</time></div>' + replyHtml + adminReplyHtml + '</article>';
+  const status = normalizeFeedbackStatus(item);
+  const statusInfo = FEEDBACK_STATUSES[status];
+  const replyHtml = replied ? '<div class="feedback-reply"><strong>管理员回复</strong><p>' + escapeFeedbackHtml(item.reply) + '</p><time>' + formatFeedbackTime(item.replied_at) + '</time></div>' : '<div class="feedback-waiting">' + statusInfo.description + '</div>';
+  const feedbackId = escapeFeedbackHtml(item.id);
+  const statusOptions = Object.entries(FEEDBACK_STATUSES).map(([value, info]) => '<option value="' + value + '"' + (status === value ? ' selected' : '') + '>' + info.label + '</option>').join('');
+  const adminToolsHtml = isAdminView
+    ? '<div class="admin-feedback-tools"><label class="admin-status-control" for="feedback-status-' + feedbackId + '"><span>处理状态</span><select id="feedback-status-' + feedbackId + '" class="feedback-status-select" data-feedback-id="' + feedbackId + '">' + statusOptions + '</select></label><button class="delete-feedback-btn" type="button" data-feedback-id="' + feedbackId + '">删除反馈</button></div>' +
+      '<div class="admin-reply-box"><textarea class="admin-reply-input" data-feedback-id="' + feedbackId + '" rows="3" maxlength="500" placeholder="' + (replied ? '修改给用户的回复' : '写下给用户的回复') + '">' + (replied ? escapeFeedbackHtml(item.reply) : '') + '</textarea><button class="reply-btn" type="button" data-feedback-id="' + feedbackId + '">' + (replied ? '更新回复' : '发送回复') + '</button></div>' +
+      '<p class="admin-feedback-message" data-feedback-message="' + feedbackId + '" role="status" aria-live="polite"></p>'
+    : '';
+  return '<article class="feedback-item" data-feedback-card="' + feedbackId + '"><div class="feedback-item-top"><div><span class="feedback-type">' + escapeFeedbackHtml(item.feedback_type) + '</span><h4>' + escapeFeedbackHtml(item.title) + '</h4></div><span class="feedback-badge status-' + status + '">' + statusInfo.label + '</span></div><p class="feedback-content">' + escapeFeedbackHtml(item.content) + '</p><div class="feedback-meta"><span>' + (isAdminView ? '来自 ' + escapeFeedbackHtml(item.username) : '提交于') + '</span><time>' + formatFeedbackTime(item.created_at) + '</time></div>' + replyHtml + adminToolsHtml + '</article>';
 }
 async function renderFeedback() {
   const myList = document.getElementById('myFeedbackList');
@@ -734,6 +754,8 @@ tabBtns.forEach(btn => {
     btn.classList.add('active');
     document.getElementById(btn.dataset.tab).classList.add('active');
     if (btn.dataset.tab === 'admin') renderAdminPanel();
+    if (btn.dataset.tab === 'admin' && window.Training) window.Training.renderAdmin();
+    if (btn.dataset.tab === 'training' && window.Training) window.Training.renderHome();
     if (btn.dataset.tab === 'feedback') renderFeedback();
     if (btn.dataset.tab === 'wordbook') renderWordbook();
   });
@@ -862,14 +884,18 @@ function renderCourseDetail() {
   });
 
   detailEl.innerHTML =
-    '<h3 class="course-title">' + lesson.title + '</h3>' +
-    '<p class="course-subtitle">' + lesson.subtitle + '</p>' +
+    '<div class="course-title-row"><div><h3 class="course-title">' + lesson.title + '</h3>' +
+    '<p class="course-subtitle">' + lesson.subtitle + '</p></div>' +
+    '<button class="course-training-btn" id="practiceCurrentLesson" type="button">练习本课</button></div>' +
     '<div class="course-section"><h3>📖 生词表</h3>' + vocabHtml + '</div>' +
     '<div class="course-section"><h3>📐 语法讲解</h3>' + grammarHtml + '</div>' +
     '<div class="course-section"><h3>📝 课文</h3><div class="course-text">' + textHtml + '</div></div>';
 
   detailEl.querySelectorAll('.mini-speak-btn').forEach(btn => {
     btn.addEventListener('click', () => speak(btn.dataset.word));
+  });
+  document.getElementById('practiceCurrentLesson')?.addEventListener('click', () => {
+    if (window.Training) window.Training.startForLesson(currentBookId, lesson.id);
   });
   bindNewWordCheckboxes(detailEl);
   detailEl.querySelectorAll('.text-ru').forEach(el => {
@@ -2154,7 +2180,7 @@ async function renderAdminPanel() {
     const now = Date.now();
     const isUserOnline = item => Boolean(item && item.is_online && item.last_seen_at && now - new Date(item.last_seen_at).getTime() < 120000);
     const onlineCount = users.filter(user => isUserOnline(progressByUser.get(user.id))).length;
-    const pendingCount = feedbackItems.filter(item => !item.reply).length;
+    const pendingCount = feedbackItems.filter(item => normalizeFeedbackStatus(item) !== 'resolved').length;
     document.getElementById('adminUserTotal').textContent = users.length;
     document.getElementById('adminOnlineTotal').textContent = onlineCount;
     document.getElementById('adminFeedbackTotal').textContent = feedbackItems.length;
@@ -2191,20 +2217,75 @@ async function renderAdminPanel() {
     feedbackEl.innerHTML = feedbackItems.length
       ? feedbackItems.map(item => renderFeedbackCard(item, true)).join('')
       : '<div class="feedback-empty"><strong>暂时没有用户反馈</strong><span>用户提交的留言会显示在这里。</span></div>';
+    const feedbackById = new Map(feedbackItems.map(item => [item.id, item]));
+    const setFeedbackMessage = (feedbackId, message, isError = false) => {
+      const messageEl = feedbackEl.querySelector('[data-feedback-message="' + feedbackId + '"]');
+      if (!messageEl) return;
+      messageEl.textContent = message;
+      messageEl.classList.toggle('error', isError);
+    };
+    feedbackEl.querySelectorAll('.feedback-status-select').forEach(select => select.addEventListener('change', async () => {
+      const item = feedbackById.get(select.dataset.feedbackId);
+      const previousStatus = normalizeFeedbackStatus(item);
+      const nextStatus = select.value;
+      if (!item || !FEEDBACK_STATUSES[nextStatus] || nextStatus === previousStatus) return;
+      select.disabled = true;
+      setFeedbackMessage(item.id, '正在更新处理状态...');
+      const { error } = await window.Auth.supabase
+        .from('feedback')
+        .update({
+          status: nextStatus,
+          resolved_at: nextStatus === 'resolved' ? (item.resolved_at || new Date().toISOString()) : null
+        })
+        .eq('id', item.id);
+      if (error) {
+        select.disabled = false;
+        select.value = previousStatus;
+        setFeedbackMessage(item.id, '状态更新失败：' + error.message, true);
+        return;
+      }
+      await renderAdminPanel();
+    }));
     feedbackEl.querySelectorAll('.reply-btn').forEach(btn => btn.addEventListener('click', async () => {
       const input = feedbackEl.querySelector('.admin-reply-input[data-feedback-id="' + btn.dataset.feedbackId + '"]');
       const reply = input.value.trim();
       if (!reply) { input.focus(); return; }
+      const item = feedbackById.get(btn.dataset.feedbackId);
+      const repliedAt = new Date().toISOString();
+      const updatePayload = { reply, replied_at: repliedAt };
+      if (normalizeFeedbackStatus(item) === 'pending') {
+        updatePayload.status = 'resolved';
+        updatePayload.resolved_at = repliedAt;
+      }
       btn.disabled = true;
-      btn.textContent = '发送中...';
+      btn.textContent = item && item.reply ? '更新中...' : '发送中...';
+      setFeedbackMessage(btn.dataset.feedbackId, '正在保存回复...');
       const { error } = await window.Auth.supabase
         .from('feedback')
-        .update({ reply, replied_at: new Date().toISOString() })
+        .update(updatePayload)
         .eq('id', btn.dataset.feedbackId);
       if (error) {
         btn.disabled = false;
-        btn.textContent = '发送回复';
-        input.value = error.message;
+        btn.textContent = item && item.reply ? '更新回复' : '发送回复';
+        setFeedbackMessage(btn.dataset.feedbackId, '回复保存失败：' + error.message, true);
+        return;
+      }
+      await renderAdminPanel();
+    }));
+    feedbackEl.querySelectorAll('.delete-feedback-btn').forEach(btn => btn.addEventListener('click', async () => {
+      const item = feedbackById.get(btn.dataset.feedbackId);
+      if (!item || !window.confirm('确定删除“' + item.title + '”这条反馈吗？删除后无法恢复。')) return;
+      btn.disabled = true;
+      btn.textContent = '删除中...';
+      setFeedbackMessage(item.id, '正在删除反馈...');
+      const { error } = await window.Auth.supabase
+        .from('feedback')
+        .delete()
+        .eq('id', item.id);
+      if (error) {
+        btn.disabled = false;
+        btn.textContent = '删除反馈';
+        setFeedbackMessage(item.id, '删除失败：' + error.message, true);
         return;
       }
       await renderAdminPanel();
@@ -2236,6 +2317,7 @@ async function enterApp(username, role) {
   startLearningPresence();
   await loadCloudWordbook();
   await loadCloudLearnedWords();
+  if (window.Training) await window.Training.enter({ username, role });
 }
 
 // ---------- 初始化 ----------
