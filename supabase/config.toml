@@ -1,0 +1,8 @@
+project_id = "xpuowzcpxsuxpironbev"
+
+[auth]
+site_url = "https://bai-shu123.github.io/russian-app/"
+additional_redirect_urls = [
+  "https://bai-shu123.github.io/russian-app/",
+  "https://bai-shu123.github.io/russian-app/**"
+]
