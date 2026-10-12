@@ -50,6 +50,7 @@
     profile.favorites = profile.favorites || {};
     profile.collections = profile.collections || {};
     profile.pendingSync = profile.pendingSync || [];
+    profile.aiReviewCache = profile.aiReviewCache || {};
   }
 
   function saveProfile() {
@@ -171,6 +172,26 @@
     if (sameWords) return { status: 'review', message: '词汇基本正确，但词序与参考答案不同，可以申请 AI 复核。' };
     const prefix = tWords.findIndex((word, index) => word !== aWords[index]);
     return { status: 'wrong', message: prefix >= 0 ? '请检查第 ' + (prefix + 1) + ' 个词附近的拼写、词形或搭配。' : '请检查拼写、词形和语法。' };
+  }
+
+  function aiReviewCacheKey(exercise, answer) {
+    return [exercise.id, exercise.version || 1, normalizeAnswer(answer)].join('::');
+  }
+
+  function applyAiReviewResult(exercise, answer, result) {
+    if (!result) return false;
+    if (result.verdict === 'correct') {
+      if (!exercise.accepted_answers.includes(answer)) exercise.accepted_answers.push(answer);
+      persistExercises();
+      finishQuestion(exercise, answer, 'correct', Math.max(1, session.hints), result.cached ? '已使用之前的 AI 复核结果。' : 'AI 复核为合理表达，已加入本地可接受答案。');
+      return true;
+    }
+    if (result.verdict === 'partial') {
+      setFeedback('基本正确，但需要修改：' + esc(result.explanation || ''), 'review');
+      return true;
+    }
+    setFeedback('复核结果：' + esc(result.explanation || '当前表达仍需修改。'), 'wrong', true);
+    return true;
   }
 
   function masteryFor(id) {
@@ -506,16 +527,22 @@
   }
 
   async function requestAiReview(exercise, answer) {
+    const cacheKey = aiReviewCacheKey(exercise, answer);
+    const cached = profile.aiReviewCache[cacheKey];
+    if (cached) {
+      applyAiReviewResult(exercise, answer, Object.assign({}, cached, { cached: true }));
+      return;
+    }
     setFeedback('正在复核表达…', 'review');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     try {
-      const { data, error } = await window.Auth.supabase.functions.invoke('judge-answer', { body: { exerciseId: exercise.id, prompt: exercise.prompt_zh, reference: exercise.answer_ru, accepted: exercise.accepted_answers || [], answer } });
+      const { data, error } = await window.Auth.supabase.functions.invoke('judge-answer', { body: { exerciseId: exercise.id, prompt: exercise.prompt_zh, reference: exercise.answer_ru, accepted: exercise.accepted_answers || [], answer }, signal: controller.signal });
       if (error) throw error;
-      if (data && data.verdict === 'correct') {
-        if (!exercise.accepted_answers.includes(answer)) exercise.accepted_answers.push(answer);
-        persistExercises();
-        finishQuestion(exercise, answer, 'correct', Math.max(1, session.hints), 'AI 复核为合理表达，已加入本地可接受答案。');
-      } else if (data && data.verdict === 'partial') setFeedback('基本正确，但需要修改：' + (data.explanation || ''), 'review');
-      else setFeedback('复核结果：' + esc(data && data.explanation || '当前表达仍需修改。'), 'wrong', true);
+      if (!data || !data.verdict) throw new Error('AI 未返回有效审核结果');
+      profile.aiReviewCache[cacheKey] = { verdict: data.verdict, explanation: String(data.explanation || ''), cachedAt: nowIso() };
+      saveProfile();
+      applyAiReviewResult(exercise, answer, data);
     } catch (error) {
       let detail = '';
       try {
@@ -524,9 +551,12 @@
           detail = payload && (payload.explanation || payload.error || payload.message) || '';
         }
       } catch (_) {}
+      if (error && error.name === 'AbortError') detail = 'AI 审核超过 8 秒未返回';
       if (!detail && error && error.message && !/edge function returned a non-2xx/i.test(error.message)) detail = error.message;
       recordAttempt(exercise, answer, 'pending_review', session.hints, { review_status: 'pending' });
       setFeedback('AI 复核失败：' + esc(detail || '服务暂不可用或额度已满。') + '<br>本次答案已进入待复核，不降低掌握度。', 'review', true);
+    } finally {
+      clearTimeout(timeout);
     }
   }
 

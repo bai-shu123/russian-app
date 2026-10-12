@@ -44,11 +44,14 @@ serve(async (request) => {
   const reference = String(body.reference || '')
   if (!answer || !reference) return response({ verdict: 'unknown', explanation: '缺少作答或参考答案。' }, 400)
 
-  const { data: limit } = await admin.from('training_ai_limits').select('*').eq('id', true).maybeSingle()
+  const [limitResult, profileResult] = await Promise.all([
+    admin.from('training_ai_limits').select('*').eq('id', true).maybeSingle(),
+    admin.from('profiles').select('role').eq('id', userData.user.id).maybeSingle()
+  ])
+  const limit = limitResult.data
   if (limit && !limit.enabled) return response({ verdict: 'pending', explanation: 'AI 复核已暂时关闭。' }, 429)
 
-  const { data: profile } = await admin.from('profiles').select('role').eq('id', userData.user.id).maybeSingle()
-  const isAdmin = profile?.role === 'admin'
+  const isAdmin = profileResult.data?.role === 'admin'
   if (!isAdmin) {
     const dailyLimit = 50
     const since = new Date(); since.setUTCHours(0, 0, 0, 0)
