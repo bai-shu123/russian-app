@@ -1,6 +1,7 @@
 node_modules/
 .npm/
 www/
+supabase/.temp/
 android/.gradle/
 android/.idea/
 android/build/
