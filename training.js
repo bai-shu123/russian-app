@@ -161,17 +161,37 @@
       .replace(/\s+/g, ' ').trim();
   }
 
+  function answerSimilarity(left, right) {
+    if (left === right) return 1;
+    if (!left || !right) return 0;
+    const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+    for (let i = 1; i <= left.length; i += 1) {
+      let diagonal = previous[0];
+      previous[0] = i;
+      for (let j = 1; j <= right.length; j += 1) {
+        const above = previous[j];
+        previous[j] = Math.min(previous[j] + 1, previous[j - 1] + 1, diagonal + (left[i - 1] === right[j - 1] ? 0 : 1));
+        diagonal = above;
+      }
+    }
+    return 1 - previous[right.length] / Math.max(left.length, right.length);
+  }
+
   function judgeLocal(exercise, answer) {
     const normalized = normalizeAnswer(answer);
     const answers = [exercise.answer_ru].concat(exercise.accepted_answers || []).map(normalizeAnswer);
-    if (!normalized) return { status: 'empty', message: '请先输入答案。' };
+    if (!normalized) return { status: 'empty', message: '先写下你的答案，我再帮你检查。' };
     if (answers.includes(normalized)) return { status: 'correct', message: '表达正确。' };
     const target = answers[0];
     const aWords = normalized.split(' '), tWords = target.split(' ');
     const sameWords = aWords.length === tWords.length && aWords.slice().sort().join('|') === tWords.slice().sort().join('|');
-    if (sameWords) return { status: 'review', message: '词汇基本正确，但词序与参考答案不同，可以申请 AI 复核。' };
+    const sharedWords = aWords.filter(word => tWords.includes(word)).length / Math.max(aWords.length, tWords.length);
+    const similarity = answerSimilarity(normalized, target);
+    if (sameWords || similarity >= .62 || sharedWords >= .6) {
+      return { status: 'review', message: '你的表达和参考答案很接近，我再帮你核对一下词形、语法和语义。' };
+    }
     const prefix = tWords.findIndex((word, index) => word !== aWords[index]);
-    return { status: 'wrong', message: prefix >= 0 ? '请检查第 ' + (prefix + 1) + ' 个词附近的拼写、词形或搭配。' : '请检查拼写、词形和语法。' };
+    return { status: 'wrong', message: prefix >= 0 ? '已经很接近了，再看看第 ' + (prefix + 1) + ' 个词附近的词形或搭配。' : '这次先别急着看答案，可以换一种说法再试一次。' };
   }
 
   function aiReviewCacheKey(exercise, answer) {
@@ -180,17 +200,25 @@
 
   function applyAiReviewResult(exercise, answer, result) {
     if (!result) return false;
+    if (result.verdict === 'pending' || result.verdict === 'unknown') {
+      session.retryRequired = false;
+      setFeedback('<strong>暂时还不能确认这句话。</strong><span>' + esc(result.explanation || '这次已放入待复核，不会影响你的掌握度。') + '</span><button class="mini-btn feedback-retry" id="retryAiReview">稍后重新核对</button>', 'review pending', true);
+      document.getElementById('retryAiReview')?.addEventListener('click', () => requestAiReview(exercise, answer));
+      return true;
+    }
     if (result.verdict === 'correct') {
       if (!exercise.accepted_answers.includes(answer)) exercise.accepted_answers.push(answer);
       persistExercises();
-      finishQuestion(exercise, answer, 'correct', Math.max(1, session.hints), result.cached ? '已使用之前的 AI 复核结果。' : 'AI 复核为合理表达，已加入本地可接受答案。');
+      session.retryRequired = false;
+      finishQuestion(exercise, answer, 'correct', session.hints, result.cached ? '这个表达之前已经确认过，也算正确。' : '这个表达也可以，算你独立答对。');
       return true;
     }
+    session.retryRequired = true;
     if (result.verdict === 'partial') {
-      setFeedback('基本正确，但需要修改：' + esc(result.explanation || ''), 'review');
+      setFeedback('<strong>意思已经到了，再改一处就好。</strong><span>' + esc(result.explanation || '检查一下词形和搭配。') + '</span>', 'review', true);
       return true;
     }
-    setFeedback('复核结果：' + esc(result.explanation || '当前表达仍需修改。'), 'wrong', true);
+    setFeedback('<strong>先调整一下再试。</strong><span>' + esc(result.explanation || '当前表达还需要修改。') + '</span>', 'wrong', true);
     return true;
   }
 
@@ -440,36 +468,79 @@
     if (!exercise) return renderSummary();
     session.questionStarted = Date.now();
     session.hints = 0;
+    session.misses = 0;
     session.revealed = false;
     session.retryRequired = false;
+    session.aiReviewing = false;
     const isDictation = exercise.type === 'dictation';
+    const savedDraft = profile.lastSession?.drafts?.[exercise.id] || '';
+    const progress = Math.round((session.index + 1) / session.queue.length * 100);
     ROOT().innerHTML = `
-      <div class="training-session-head"><button class="mini-btn" id="pauseTraining">暂停并保存</button><div><strong>${session.index + 1} / ${session.queue.length}</strong><span>${isDictation ? '俄语听写' : '中译俄'} · ${esc(exercise.difficulty)}</span></div><button class="icon-action ${profile.favorites[exercise.id] ? 'active' : ''}" id="favoriteExercise" aria-label="标记重点">★</button></div>
-      <div class="training-progress"><i style="width:${Math.round(session.index / session.queue.length * 100)}%"></i></div>
+      <div class="training-session-head">
+        <button class="session-back" id="pauseTraining" aria-label="暂停并返回今日训练">‹ <span>暂时退出</span></button>
+        <div class="session-position"><strong>第 ${session.index + 1} 题</strong><span>共 ${session.queue.length} 题</span></div>
+        <button class="icon-action ${profile.favorites[exercise.id] ? 'active' : ''}" id="favoriteExercise" aria-label="标记重点">★</button>
+      </div>
+      <div class="training-progress" aria-label="当前进度 ${progress}%"><i style="width:${progress}%"></i></div>
       <article class="training-question">
-        <div class="training-source">${esc(exercise.book_title)} · ${esc(exercise.lesson_title)}</div>
-        ${isDictation ? `<div class="dictation-stage"><button class="audio-main" id="playDictation">▶ 播放音频</button><button class="mini-btn" id="slowDictation">0.75× 慢速</button><button class="mini-btn" id="showTranscript">显示原文</button><p id="transcriptText" class="hidden"></p></div>` : `<h2>${esc(exercise.prompt_zh)}</h2>`}
-        <label class="training-answer-label" for="trainingAnswer">请输入俄语答案</label>
-        <textarea id="trainingAnswer" class="training-answer" rows="3" autocomplete="off" spellcheck="false"></textarea>
-        <div id="trainingFeedback" class="training-feedback">${message ? esc(message) : ''}</div>
-        <div class="training-actions"><button class="primary-action" id="submitTrainingAnswer">提交答案</button><button class="mini-btn" id="requestHint">提示</button><button class="mini-btn" id="markUnfamiliar">仍不熟</button><button class="text-action" id="reportExercise">报告问题</button></div>
+        <div class="training-question-meta"><span>${isDictation ? '听写' : '中译俄'}</span><span>${esc(exercise.difficulty)}</span><span>${esc(exercise.lesson_title)}</span></div>
+        ${isDictation ? `<div class="dictation-stage"><button class="audio-main" id="playDictation">▶ 听一遍</button><button class="mini-btn" id="slowDictation">慢速播放</button><button class="mini-btn" id="showTranscript">查看文字</button><p id="transcriptText" class="hidden"></p></div>` : `<div class="training-prompt"><span>请用俄语表达</span><h2>${esc(exercise.prompt_zh)}</h2></div>`}
+        <label class="training-answer-label" for="trainingAnswer">你的答案</label>
+        <textarea id="trainingAnswer" class="training-answer" rows="2" autocomplete="off" autocapitalize="sentences" spellcheck="false" placeholder="在这里输入俄语…">${esc(savedDraft)}</textarea>
+        <p class="training-input-note">不用和参考答案一模一样，意思和语法正确就可以。</p>
+        <div id="trainingFeedback" class="training-feedback" aria-live="polite">${message ? esc(message) : ''}</div>
+        <div class="training-actions training-main-actions"><button class="primary-action" id="submitTrainingAnswer">检查答案</button><button class="mini-btn" id="requestHint">给我一点提示</button><button class="mini-btn" id="markUnfamiliar">这题还不会</button></div>
+        <button class="text-action training-report" id="reportExercise">题目有问题？告诉我</button>
       </article>`;
     bindQuestion(exercise);
     if (isDictation && profile.settings.autoPlay) playAudio(exercise, 1);
-    document.getElementById('trainingAnswer').focus();
+    const answerInput = document.getElementById('trainingAnswer');
+    answerInput.focus();
+    answerInput.setSelectionRange(answerInput.value.length, answerInput.value.length);
   }
 
   function bindQuestion(exercise) {
-    document.getElementById('pauseTraining').addEventListener('click', () => { profile.lastSession.index = session.index; saveProfile(); renderHome(); });
-    document.getElementById('favoriteExercise').addEventListener('click', event => { if (profile.favorites[exercise.id]) delete profile.favorites[exercise.id]; else profile.favorites[exercise.id] = { note: '', createdAt: nowIso() }; saveProfile(); event.currentTarget.classList.toggle('active'); });
+    const answerInput = document.getElementById('trainingAnswer');
+    document.getElementById('pauseTraining').addEventListener('click', () => {
+      profile.lastSession.index = session.index;
+      profile.lastSession.drafts = profile.lastSession.drafts || {};
+      profile.lastSession.drafts[exercise.id] = answerInput.value;
+      saveProfile();
+      renderHome();
+    });
+    document.getElementById('favoriteExercise').addEventListener('click', event => {
+      if (profile.favorites[exercise.id]) delete profile.favorites[exercise.id];
+      else profile.favorites[exercise.id] = { note: '', createdAt: nowIso() };
+      saveProfile();
+      event.currentTarget.classList.toggle('active');
+      event.currentTarget.setAttribute('aria-label', profile.favorites[exercise.id] ? '取消重点标记' : '标记重点');
+    });
     document.getElementById('submitTrainingAnswer').addEventListener('click', () => submitAnswer(exercise));
-    document.getElementById('trainingAnswer').addEventListener('keydown', event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') submitAnswer(exercise); });
+    answerInput.addEventListener('input', () => {
+      answerInput.style.height = 'auto';
+      answerInput.style.height = Math.min(answerInput.scrollHeight, 180) + 'px';
+      if (profile.lastSession) {
+        profile.lastSession.drafts = profile.lastSession.drafts || {};
+        profile.lastSession.drafts[exercise.id] = answerInput.value;
+      }
+    });
+    answerInput.addEventListener('keydown', event => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') submitAnswer(exercise);
+    });
     document.getElementById('requestHint').addEventListener('click', () => showHint(exercise));
-    document.getElementById('markUnfamiliar').addEventListener('click', () => finishQuestion(exercise, '', 'wrong', session.hints, '已标记为仍不熟，将更早复习。'));
+    document.getElementById('markUnfamiliar').addEventListener('click', () => finishQuestion(exercise, '', 'wrong', session.hints, '没关系，这题已经放进近期复习里。'));
     document.getElementById('reportExercise').addEventListener('click', () => reportExercise(exercise));
     document.getElementById('playDictation')?.addEventListener('click', () => playAudio(exercise, 1));
     document.getElementById('slowDictation')?.addEventListener('click', () => { session.hints = Math.max(session.hints, 1); playAudio(exercise, .75); });
-    document.getElementById('showTranscript')?.addEventListener('click', () => { session.hints = Math.max(session.hints, 2); session.revealed = true; session.retryRequired = true; const text = document.getElementById('transcriptText'); text.textContent = exercise.answer_ru; text.classList.remove('hidden'); setFeedback('已显示原文。请隐藏辅助后重新独立输入。', 'hint'); });
+    document.getElementById('showTranscript')?.addEventListener('click', () => {
+      session.hints = Math.max(session.hints, 2);
+      session.revealed = true;
+      session.retryRequired = true;
+      const text = document.getElementById('transcriptText');
+      text.textContent = exercise.answer_ru;
+      text.classList.remove('hidden');
+      setFeedback('<strong>文字已经显示。</strong><span>看懂后可以再听一次，然后自己写出来。</span>', 'hint', true);
+    });
   }
 
   function playAudio(exercise, rate) {
@@ -492,32 +563,40 @@
     session.hints += 1;
     if (session.hints === 1) {
       const tags = (exercise.knowledge_tags || []).map(item => item.name).slice(0, 2).join('、');
-      setFeedback('错误方向提示：注意' + (tags || '词形、格和动词形式') + '。', 'hint');
+      setFeedback('<strong>先缩小范围。</strong><span>留意' + esc(tags || '词形、格和动词形式') + '，再读一遍你的句子。</span>', 'hint', true);
     } else if (session.hints === 2) {
       const words = normalizeAnswer(exercise.answer_ru).split(' ');
-      setFeedback('位置提示：答案共 ' + words.length + ' 个词，开头是“' + esc(words[0].slice(0, 2)) + '…”', 'hint', true);
+      setFeedback('<strong>再给你一个线索。</strong><span>参考表达有 ' + words.length + ' 个词，第一个词以“' + esc(words[0].slice(0, 2)) + '…”开头。</span>', 'hint', true);
     } else {
-      session.revealed = true; session.retryRequired = true;
-      setFeedback('参考答案：<strong>' + esc(exercise.answer_ru) + '</strong><br>请理解后重新独立输入。' + (exercise.explanation ? '<br>' + esc(exercise.explanation) : ''), 'answer', true);
+      session.revealed = true;
+      session.retryRequired = true;
+      setFeedback('<strong>先理解，再自己写一遍。</strong><span class="feedback-reference">' + esc(exercise.answer_ru) + '</span>' + (exercise.explanation ? '<span>' + esc(exercise.explanation) + '</span>' : ''), 'answer', true);
     }
   }
 
   function submitAnswer(exercise) {
+    if (session.aiReviewing) return;
     const answer = document.getElementById('trainingAnswer').value.trim();
     const judged = judgeLocal(exercise, answer);
-    if (judged.status === 'empty') return setFeedback(judged.message, 'warning');
+    if (judged.status === 'empty') return setFeedback('<strong>还没有答案。</strong><span>' + esc(judged.message) + '</span>', 'warning', true);
     if (judged.status === 'correct') {
       if (session.retryRequired && session.hints < 1) session.hints = 1;
-      finishQuestion(exercise, answer, 'correct', session.hints, session.hints ? '辅助后重新答对，已安排较早复习。' : '独立答对！');
+      finishQuestion(exercise, answer, 'correct', session.hints, session.hints ? '很好，这次已经自己改对了。' : '答对了，而且是独立完成。');
       return;
     }
-    session.hints += 1;
+    session.misses = (session.misses || 0) + 1;
+    if (judged.status === 'review' && profile.featureFlags.ai) {
+      requestAiReview(exercise, answer);
+      return;
+    }
+    session.hints = Math.max(session.hints, 1);
     session.retryRequired = true;
-    if (session.hints >= 3) {
+    const reveal = session.misses >= 3;
+    if (reveal) {
       session.revealed = true;
-      setFeedback(judged.message + '<br>参考答案：<strong>' + esc(exercise.answer_ru) + '</strong><br>请重新独立输入后再提交。' + aiReviewButton(exercise, answer), 'wrong', true);
+      setFeedback('<strong>这题有点难，先看参考表达。</strong><span>' + esc(judged.message) + '</span><span class="feedback-reference">' + esc(exercise.answer_ru) + '</span><span>看懂后请合上提示，再自己输入一次。</span>' + aiReviewButton(exercise, answer), 'wrong', true);
     } else {
-      setFeedback(judged.message + aiReviewButton(exercise, answer), judged.status === 'review' ? 'review' : 'wrong', true);
+      setFeedback('<strong>先别急，已经找到需要调整的位置。</strong><span>' + esc(judged.message) + '</span>' + aiReviewButton(exercise, answer), judged.status === 'review' ? 'review' : 'wrong', true);
     }
     document.getElementById('aiReviewAnswer')?.addEventListener('click', () => requestAiReview(exercise, answer));
   }
@@ -533,7 +612,10 @@
       applyAiReviewResult(exercise, answer, Object.assign({}, cached, { cached: true }));
       return;
     }
-    setFeedback('正在复核表达…', 'review');
+    session.aiReviewing = true;
+    const submitButton = document.getElementById('submitTrainingAnswer');
+    if (submitButton) { submitButton.disabled = true; submitButton.textContent = '正在帮你核对…'; }
+    setFeedback('<strong><span class="review-spinner" aria-hidden="true"></span>正在认真核对你的表达</strong><span>会同时检查语义、语法和词形，通常需要几秒。</span>', 'review loading', true);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
     try {
@@ -551,12 +633,15 @@
           detail = payload && (payload.explanation || payload.error || payload.message) || '';
         }
       } catch (_) {}
-      if (error && (error.name === 'AbortError' || /aborted|aborterror/i.test(String(error.message || error.cause || '')))) detail = 'AI 审核超过 60 秒未返回，请稍后重试';
+      if (error && (error.name === 'AbortError' || /aborted|aborterror/i.test(String(error.message || error.cause || '')))) detail = '核对时间有点久，请稍后再试';
       if (!detail && error && error.message && !/edge function returned a non-2xx/i.test(error.message)) detail = error.message;
       recordAttempt(exercise, answer, 'pending_review', session.hints, { review_status: 'pending' });
-      setFeedback('AI 复核失败：' + esc(detail || '服务暂不可用或额度已满。') + '<br>本次答案已进入待复核，不降低掌握度。', 'review', true);
+      setFeedback('<strong>这次没有连上复核服务。</strong><span>' + esc(detail || '你的答案已经保留，稍后可以重新核对。') + '</span><span>这次不会影响掌握度。</span><button class="mini-btn feedback-retry" id="retryAiReview">重新核对</button>', 'review', true);
+      document.getElementById('retryAiReview')?.addEventListener('click', () => requestAiReview(exercise, answer));
     } finally {
       clearTimeout(timeout);
+      session.aiReviewing = false;
+      if (submitButton && document.body.contains(submitButton)) { submitButton.disabled = false; submitButton.textContent = '检查答案'; }
     }
   }
 
@@ -564,9 +649,18 @@
     updateMastery(exercise, result, hints > 0);
     recordAttempt(exercise, answer, result, hints);
     session.results.push({ exercise, result, hints });
-    setFeedback(esc(message) + `<div class="answer-reference"><strong>${esc(exercise.answer_ru)}</strong><span>${esc(exercise.explanation || '')}</span></div><button class="primary-action" id="nextTrainingQuestion">下一题</button>`, result === 'correct' ? 'correct' : 'wrong', true);
+    if (profile.lastSession?.drafts) delete profile.lastSession.drafts[exercise.id];
+    const isCorrect = result === 'correct';
+    setFeedback('<div class="result-heading"><span class="result-mark">' + (isCorrect ? '✓' : '↻') + '</span><div><strong>' + esc(message) + '</strong><span>' + (isCorrect ? '继续保持这个节奏。' : '系统会安排你更早再遇到它。') + '</span></div></div><div class="answer-reference"><span>参考表达</span><strong>' + esc(exercise.answer_ru) + '</strong>' + (exercise.explanation ? '<small>' + esc(exercise.explanation) + '</small>' : '') + '</div><button class="primary-action next-question-action" id="nextTrainingQuestion">' + (session.index + 1 >= session.queue.length ? '查看训练结果' : '下一题') + '</button>', isCorrect ? 'correct complete' : 'wrong complete', true);
     document.getElementById('submitTrainingAnswer').disabled = true;
-    document.getElementById('nextTrainingQuestion').addEventListener('click', () => { session.index += 1; if (profile.lastSession) profile.lastSession.index = session.index; saveProfile(); renderQuestion(); });
+    document.getElementById('requestHint').disabled = true;
+    document.getElementById('markUnfamiliar').disabled = true;
+    document.getElementById('nextTrainingQuestion').addEventListener('click', () => {
+      session.index += 1;
+      if (profile.lastSession) profile.lastSession.index = session.index;
+      saveProfile();
+      renderQuestion();
+    });
   }
 
   async function reportExercise(exercise) {
