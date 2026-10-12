@@ -10,6 +10,17 @@ function response(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 }
 
+function extractOutputText(result: any) {
+  return result.output_text || result.output?.flatMap((item: any) => item.content || []).map((item: any) => item.text || '').join('') || ''
+}
+
+function parseJudgement(text: string) {
+  const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+  const judgement = JSON.parse(cleaned)
+  if (!['correct', 'partial', 'wrong', 'unknown'].includes(judgement?.verdict)) throw new Error('invalid_verdict')
+  return { verdict: judgement.verdict, explanation: String(judgement.explanation || '') }
+}
+
 serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (request.method !== 'POST') return response({ error: 'method_not_allowed' }, 405)
@@ -44,20 +55,42 @@ serve(async (request) => {
   const monthlyCost = (monthlyRows || []).reduce((sum, row) => sum + Number(row.estimated_cost || 0), 0)
   if (limit && monthlyCost >= Number(limit.monthly_cost || 5)) return response({ verdict: 'pending', explanation: '本月 AI 复核费用上限已达到。' }, 429)
 
-  const upstream = await fetch(`${openaiBaseUrl}/responses`, {
-    method: 'POST', headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: openaiModel,
-      input: `你是俄语教师。判断学习者答案是否表达了与参考答案相同的意思。只考虑语法、词形、拼写、搭配和语义，不因为大小写、标点、空格或 е/ё 差异判错。\n中文题目：${prompt}\n参考答案：${reference}\n学习者答案：${answer}`,
-      text: { format: { type: 'json_schema', name: 'answer_judgement', strict: true, schema: { type: 'object', properties: { verdict: { type: 'string', enum: ['correct', 'partial', 'wrong', 'unknown'] }, explanation: { type: 'string' } }, required: ['verdict', 'explanation'], additionalProperties: false } } },
-      max_output_tokens: 180
-    })
+  const input = `你是俄语教师。判断学习者答案是否表达了与参考答案相同的意思。只考虑语法、词形、拼写、搭配和语义，不因为大小写、标点、空格或 е/ё 差异判错。只输出 JSON，不要使用 Markdown，格式为 {"verdict":"correct|partial|wrong|unknown","explanation":"简短中文说明"}。\n中文题目：${prompt}\n参考答案：${reference}\n学习者答案：${answer}`
+  const headers = { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' }
+  const schema = { type: 'object', properties: { verdict: { type: 'string', enum: ['correct', 'partial', 'wrong', 'unknown'] }, explanation: { type: 'string' } }, required: ['verdict', 'explanation'], additionalProperties: false }
+
+  let upstream = await fetch(`${openaiBaseUrl}/responses`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ model: openaiModel, input, text: { format: { type: 'json_schema', name: 'answer_judgement', strict: true, schema } }, max_output_tokens: 180 })
   })
-  if (!upstream.ok) return response({ verdict: 'pending', explanation: 'AI 服务暂不可用，已保留为待复核。' }, 503)
+
+  // 部分 OpenAI 兼容中转站支持 Responses API，但不支持 text.format；遇到参数错误时自动降级。
+  if (!upstream.ok && [400, 404, 422].includes(upstream.status)) {
+    const firstError = await upstream.text()
+    console.warn('Structured AI review failed; retrying without text.format', upstream.status, firstError.slice(0, 1000))
+    upstream = await fetch(`${openaiBaseUrl}/responses`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ model: openaiModel, input, max_output_tokens: 180 })
+    })
+  }
+
+  if (!upstream.ok) {
+    const errorText = await upstream.text()
+    console.error('AI review upstream error', upstream.status, errorText.slice(0, 1000))
+    const hint = upstream.status === 401 || upstream.status === 403
+      ? '中转站密钥无效或无权使用该模型。'
+      : upstream.status === 429
+        ? '中转站额度不足或请求过于频繁。'
+        : `中转站返回错误（${upstream.status}）。`
+    return response({ verdict: 'pending', explanation: `${hint}本次答案已进入待复核，不降低掌握度。` }, 503)
+  }
+
   const result = await upstream.json()
-  const text = result.output_text || result.output?.flatMap((item: any) => item.content || []).map((item: any) => item.text || '').join('') || ''
   let judgement: any
-  try { judgement = JSON.parse(text) } catch (_) { return response({ verdict: 'pending', explanation: 'AI 返回格式异常，已保留为待复核。' }, 503) }
-  await admin.from('training_ai_reviews').upsert({ user_id: userData.user.id, exercise_id: String(body.exerciseId || ''), normalized_answer: answer.toLowerCase(), verdict: judgement.verdict, explanation: judgement.explanation || '', provider: 'openai', model: openaiModel, estimated_cost: 0.002 }, { onConflict: 'user_id,exercise_id,normalized_answer' })
+  try { judgement = parseJudgement(extractOutputText(result)) } catch (error) {
+    console.error('AI review parse error', String(error), JSON.stringify(result).slice(0, 1500))
+    return response({ verdict: 'pending', explanation: 'AI 返回格式异常，已保留为待复核。' }, 503)
+  }
+  await admin.from('training_ai_reviews').upsert({ user_id: userData.user.id, exercise_id: String(body.exerciseId || ''), normalized_answer: answer.toLowerCase(), verdict: judgement.verdict, explanation: judgement.explanation || '', provider: 'openai-compatible', model: openaiModel, estimated_cost: 0.002 }, { onConflict: 'user_id,exercise_id,normalized_answer' })
   return response(judgement)
 })
