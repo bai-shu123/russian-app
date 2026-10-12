@@ -535,7 +535,7 @@
     }
     setFeedback('正在复核表达…', 'review');
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 60000);
     try {
       const { data, error } = await window.Auth.supabase.functions.invoke('judge-answer', { body: { exerciseId: exercise.id, prompt: exercise.prompt_zh, reference: exercise.answer_ru, accepted: exercise.accepted_answers || [], answer }, signal: controller.signal });
       if (error) throw error;
@@ -551,7 +551,7 @@
           detail = payload && (payload.explanation || payload.error || payload.message) || '';
         }
       } catch (_) {}
-      if (error && error.name === 'AbortError') detail = 'AI 审核超过 8 秒未返回';
+      if (error && (error.name === 'AbortError' || /aborted|aborterror/i.test(String(error.message || error.cause || '')))) detail = 'AI 审核超过 60 秒未返回，请稍后重试';
       if (!detail && error && error.message && !/edge function returned a non-2xx/i.test(error.message)) detail = error.message;
       recordAttempt(exercise, answer, 'pending_review', session.hints, { review_status: 'pending' });
       setFeedback('AI 复核失败：' + esc(detail || '服务暂不可用或额度已满。') + '<br>本次答案已进入待复核，不降低掌握度。', 'review', true);
