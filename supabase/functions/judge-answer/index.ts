@@ -46,14 +46,15 @@ serve(async (request) => {
 
   const { data: limit } = await admin.from('training_ai_limits').select('*').eq('id', true).maybeSingle()
   if (limit && !limit.enabled) return response({ verdict: 'pending', explanation: 'AI 复核已暂时关闭。' }, 429)
-  const dailyLimit = limit?.daily_calls || 50
-  const since = new Date(); since.setUTCHours(0, 0, 0, 0)
-  const { count } = await admin.from('training_ai_reviews').select('id', { count: 'exact', head: true }).eq('user_id', userData.user.id).gte('created_at', since.toISOString())
-  if ((count || 0) >= dailyLimit) return response({ verdict: 'pending', explanation: '今日 AI 复核额度已用完。' }, 429)
-  const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1))
-  const { data: monthlyRows } = await admin.from('training_ai_reviews').select('estimated_cost').gte('created_at', monthStart.toISOString())
-  const monthlyCost = (monthlyRows || []).reduce((sum, row) => sum + Number(row.estimated_cost || 0), 0)
-  if (limit && monthlyCost >= Number(limit.monthly_cost || 5)) return response({ verdict: 'pending', explanation: '本月 AI 复核费用上限已达到。' }, 429)
+
+  const { data: profile } = await admin.from('profiles').select('role').eq('id', userData.user.id).maybeSingle()
+  const isAdmin = profile?.role === 'admin'
+  if (!isAdmin) {
+    const dailyLimit = 50
+    const since = new Date(); since.setUTCHours(0, 0, 0, 0)
+    const { count } = await admin.from('training_ai_reviews').select('id', { count: 'exact', head: true }).eq('user_id', userData.user.id).gte('created_at', since.toISOString())
+    if ((count || 0) >= dailyLimit) return response({ verdict: 'pending', explanation: '今日 AI 复核额度已用完（每天最多 50 次）。' }, 429)
+  }
 
   const input = `你是俄语教师。判断学习者答案是否表达了与参考答案相同的意思。只考虑语法、词形、拼写、搭配和语义，不因为大小写、标点、空格或 е/ё 差异判错。只输出 JSON，不要使用 Markdown，格式为 {"verdict":"correct|partial|wrong|unknown","explanation":"简短中文说明"}。\n中文题目：${prompt}\n参考答案：${reference}\n学习者答案：${answer}`
   const headers = { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' }
@@ -94,3 +95,4 @@ serve(async (request) => {
   await admin.from('training_ai_reviews').upsert({ user_id: userData.user.id, exercise_id: String(body.exerciseId || ''), normalized_answer: answer.toLowerCase(), verdict: judgement.verdict, explanation: judgement.explanation || '', provider: 'openai-compatible', model: openaiModel, estimated_cost: 0.002 }, { onConflict: 'user_id,exercise_id,normalized_answer' })
   return response(judgement)
 })
+
